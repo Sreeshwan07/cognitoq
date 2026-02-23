@@ -7,11 +7,14 @@ import {
   BookOpen,
   TrendingUp,
   Clock,
+  GraduationCap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { subjects, branches } from "@/data/subjects";
 
 const container = {
   hidden: {},
@@ -24,17 +27,17 @@ const item = {
 };
 
 const recentPapers = [
-  { name: "Physics Mid-Term Set A", date: "Feb 20, 2026", questions: 25, marks: 100 },
-  { name: "Chemistry Final Set B", date: "Feb 18, 2026", questions: 30, marks: 75 },
-  { name: "Mathematics Unit Test", date: "Feb 15, 2026", questions: 15, marks: 50 },
-  { name: "Biology Practice Paper", date: "Feb 12, 2026", questions: 40, marks: 100 },
+  { name: "Data Structures & Algorithms (CS201)", date: "Feb 20, 2026", questions: 25, marks: 100 },
+  { name: "Engineering Mathematics I (MA101)", date: "Feb 18, 2026", questions: 20, marks: 70 },
+  { name: "Operating Systems (CS301)", date: "Feb 15, 2026", questions: 22, marks: 100 },
+  { name: "DBMS (CS302)", date: "Feb 12, 2026", questions: 18, marks: 70 },
 ];
 
 const quickActions = [
+  { label: "Browse Subjects", icon: GraduationCap, to: "/subjects", color: "bg-primary/10 text-primary" },
   { label: "Upload Questions", icon: Upload, to: "/question-bank", color: "bg-info/10 text-info" },
   { label: "Generate Paper", icon: Zap, to: "/generate", color: "bg-accent/10 text-accent" },
   { label: "View Analytics", icon: BarChart3, to: "/analytics", color: "bg-success/10 text-success" },
-  { label: "Create Blueprint", icon: BookOpen, to: "/blueprints", color: "bg-primary/10 text-primary" },
 ];
 
 export default function Dashboard() {
@@ -47,7 +50,7 @@ export default function Dashboard() {
         className="space-y-1"
       >
         <h1 className="text-3xl font-display text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back. Here's your question paper overview.</p>
+        <p className="text-muted-foreground">B.Tech Question Paper Generator — {subjects.length} subjects across {branches.length} branches.</p>
       </motion.div>
 
       {/* Stats */}
