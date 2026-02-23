@@ -9,12 +9,14 @@ import {
   Zap,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/subjects", icon: GraduationCap, label: "Subjects" },
   { to: "/question-bank", icon: Database, label: "Question Bank" },
   { to: "/generate", icon: Zap, label: "Generate Paper" },
   { to: "/blueprints", icon: BookOpen, label: "Blueprints" },
