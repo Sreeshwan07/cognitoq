@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "./ThemeToggle";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -70,12 +71,15 @@ export default function AppSidebar() {
         })}
       </nav>
 
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center h-12 border-t border-sidebar-border text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
-      >
-        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-      </button>
+      <div className="flex items-center justify-between px-2 h-12 border-t border-sidebar-border">
+        <ThemeToggle />
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center justify-center w-9 h-9 text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+      </div>
     </aside>
   );
 }
