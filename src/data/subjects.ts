@@ -21,6 +21,7 @@ export const branches: Branch[] = [
   { id: "me", name: "Mechanical Engineering", shortName: "ME" },
   { id: "ce", name: "Civil Engineering", shortName: "CE" },
   { id: "ee", name: "Electrical Engineering", shortName: "EE" },
+  { id: "it", name: "Information Technology", shortName: "IT" },
 ];
 
 export const subjects: Subject[] = [
@@ -81,6 +82,16 @@ export const subjects: Subject[] = [
   { id: "ps", name: "Power Systems", code: "EE401", branch: "ee", year: 3, semester: 5, units: ["Power Generation", "Transmission Lines", "Distribution Systems", "Load Flow Analysis", "Power System Protection"] },
   { id: "pe", name: "Power Electronics", code: "EE402", branch: "ee", year: 3, semester: 5, units: ["Power Semiconductor Devices", "Rectifiers", "Inverters", "Choppers", "AC Voltage Controllers"] },
   { id: "cs-ee", name: "Control Systems", code: "EE303", branch: "ee", year: 3, semester: 5, units: ["Block Diagrams & Signal Flow", "Time Domain Analysis", "Frequency Domain Analysis", "Stability Analysis", "State Space Analysis"] },
+
+  // ─── IT ───
+  { id: "it-dsa", name: "Data Structures & Algorithms", code: "IT201", branch: "it", year: 2, semester: 3, units: ["Arrays, Stacks & Queues", "Linked Lists", "Trees & BST", "Graphs", "Sorting & Searching"] },
+  { id: "it-os", name: "Operating Systems", code: "IT301", branch: "it", year: 2, semester: 4, units: ["Process Management", "CPU Scheduling", "Memory Management", "File Systems", "Deadlocks & Synchronization"] },
+  { id: "it-dbms", name: "Database Management Systems", code: "IT302", branch: "it", year: 2, semester: 4, units: ["ER Model & Relational Model", "SQL & Normalization", "Transaction Management", "Concurrency Control", "Indexing & Hashing"] },
+  { id: "it-cn", name: "Computer Networks", code: "IT401", branch: "it", year: 3, semester: 5, units: ["Network Models & OSI", "Data Link Layer", "Network Layer & Routing", "Transport Layer (TCP/UDP)", "Application Layer Protocols"] },
+  { id: "it-se", name: "Software Engineering", code: "IT402", branch: "it", year: 3, semester: 5, units: ["SDLC Models", "Requirements Engineering", "Design Patterns", "Testing & QA", "Project Management"] },
+  { id: "it-web", name: "Web Technologies", code: "IT403", branch: "it", year: 3, semester: 5, units: ["HTML/CSS/JS", "React & Frontend Frameworks", "Node.js & Express", "REST APIs", "Web Security"] },
+  { id: "it-cloud", name: "Cloud Computing", code: "IT501", branch: "it", year: 4, semester: 7, units: ["Cloud Architecture", "Virtualization", "Cloud Services (IaaS/PaaS/SaaS)", "Cloud Security", "Serverless & Containers"] },
+  { id: "it-tic", name: "Information Security", code: "IT502", branch: "it", year: 4, semester: 7, units: ["Cryptography", "Network Security", "Authentication & Authorization", "Security Protocols", "Ethical Hacking"] },
 ];
 
 export function getSubjectsByBranch(branchId: string): Subject[] {
