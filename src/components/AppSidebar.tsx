@@ -23,6 +23,7 @@ const navItems = [
   { to: "/blueprints", icon: BookOpen, label: "Blueprints" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/papers", icon: FileText, label: "Past Papers" },
+  { to: "/pyq", icon: BookOpen, label: "PYQ Papers" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
