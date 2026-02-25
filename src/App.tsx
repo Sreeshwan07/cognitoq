@@ -11,6 +11,7 @@ import GeneratePaper from "./pages/GeneratePaper";
 import Blueprints from "./pages/Blueprints";
 import Analytics from "./pages/Analytics";
 import PastPapers from "./pages/PastPapers";
+import PreviousYearPapers from "./pages/PreviousYearPapers";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/blueprints" element={<Blueprints />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/papers" element={<PastPapers />} />
+            <Route path="/pyq" element={<PreviousYearPapers />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />

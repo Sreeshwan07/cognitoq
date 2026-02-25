@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   Zap, Shuffle, Download, FileText, BookOpen,
   Building2, GraduationCap, AlertCircle, CheckCircle2,
-  ShieldCheck, ChevronDown, ChevronUp, BarChart3
+  ShieldCheck, ChevronDown, ChevronUp, BarChart3, RefreshCw, Palette, Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { subjects, branches, getSubjectById, type Subject } from "@/data/subjects";
@@ -21,6 +22,15 @@ import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 const examTypes = ["Mid Semester", "End Semester", "Internal Assessment", "Supplementary"];
+
+const paperThemes = [
+  { id: "classic", name: "University Classic", icon: "🎓", description: "Traditional university format" },
+  { id: "jntu", name: "JNTU Style", icon: "🏫", description: "JNTU exam pattern" },
+  { id: "minimal", name: "Modern Minimal", icon: "🧾", description: "Clean modern look" },
+  { id: "dark", name: "Dark Academic", icon: "🖤", description: "Dark formal aesthetic" },
+  { id: "iit", name: "IIT Pattern", icon: "🏛", description: "IIT exam structure" },
+  { id: "blue", name: "Clean Blue Professional", icon: "📘", description: "Corporate blue theme" },
+];
 
 interface UnitDistribution {
   unitName: string;
@@ -58,7 +68,7 @@ export default function GeneratePaper() {
   const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>([]);
   const [useUnitDistribution, setUseUnitDistribution] = useState(false);
 
-  // Global question counts (when not using per-unit)
+  // Global question counts
   const [q2Count, setQ2Count] = useState(0);
   const [q5Count, setQ5Count] = useState(0);
   const [q10Count, setQ10Count] = useState(0);
@@ -70,7 +80,10 @@ export default function GeneratePaper() {
   const [collegeName, setCollegeName] = useState("");
   const [examType, setExamType] = useState("");
   const [duration, setDuration] = useState("");
-  const [sets, setSets] = useState("1");
+  const [variantCount, setVariantCount] = useState("1");
+
+  // Paper theme
+  const [selectedTheme, setSelectedTheme] = useState("classic");
 
   // Bloom's taxonomy
   const [bloomsEnabled, setBloomsEnabled] = useState(false);
@@ -80,12 +93,20 @@ export default function GeneratePaper() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
+  const [generatedVariants, setGeneratedVariants] = useState<GeneratedQuestion[][]>([]);
+  const [activeVariant, setActiveVariant] = useState(0);
   const [showValidation, setShowValidation] = useState(false);
   const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
   const [unitSectionOpen, setUnitSectionOpen] = useState(true);
+  const [variantLabel, setVariantLabel] = useState("");
+  const [isDraft, setIsDraft] = useState(false);
+
+  // Track previously used question IDs for smart shuffle
+  const usedQuestionSets = useRef<Set<string>[]>([]);
 
   // Computed
+  const generatedQuestions = generatedVariants[activeVariant] || [];
+
   const totalMarks = useMemo(() => {
     if (useUnitDistribution) {
       return unitDistributions.reduce((sum, u) => {
@@ -126,12 +147,14 @@ export default function GeneratePaper() {
 
   const currentSubject = getSubjectById(selectedSubject);
 
-  // Initialize unit distributions when subject changes
   const handleSubjectChange = useCallback((subjectId: string) => {
     setSelectedSubject(subjectId);
     setGenerated(false);
     setShowValidation(false);
     setValidationReport(null);
+    setGeneratedVariants([]);
+    setActiveVariant(0);
+    usedQuestionSets.current = [];
     const sub = getSubjectById(subjectId);
     if (sub) {
       setUnitDistributions(
@@ -175,7 +198,79 @@ export default function GeneratePaper() {
     setUnitDistributions(prev => prev.map(u => ({ ...u, selected })));
   };
 
-  // Question generation engine
+  // Core generation engine for a single variant
+  const generateSingleVariant = useCallback((excludeKeys: Set<string>): { questions: GeneratedQuestion[]; usedKeys: Set<string> } => {
+    const subjectBank = getQuestionsForSubject(selectedSubject);
+    const result: GeneratedQuestion[] = [];
+    const newUsedKeys = new Set<string>();
+    let qNum = 1;
+
+    const diffFilter = (q: Question): boolean => {
+      if (difficulty === "mixed") return true;
+      return q.difficulty.toLowerCase() === difficulty;
+    };
+
+    const bloomFilter = (q: Question): boolean => {
+      if (!bloomsEnabled || bloomsLevel === "all") return true;
+      return q.bloom.toLowerCase() === bloomsLevel;
+    };
+
+    const pickQuestions = (unitName: string, marks: number, count: number) => {
+      const unitQuestions = (subjectBank[unitName] || []).filter(
+        q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim())
+      );
+
+      // Shuffle available questions
+      const shuffled = [...unitQuestions].sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < count; i++) {
+        if (i < shuffled.length) {
+          const key = shuffled[i].text.toLowerCase().trim();
+          newUsedKeys.add(key);
+          result.push({ ...shuffled[i], unit: unitName, questionNumber: qNum++ });
+        } else {
+          const diffLevel = difficulty === "mixed"
+            ? (["Easy", "Medium", "Hard"] as const)[i % 3]
+            : (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as "Easy" | "Medium" | "Hard";
+          const gen = generateGenericQuestion(unitName, marks, diffLevel);
+          const key = gen.text.toLowerCase().trim();
+          // Append variant-unique suffix for generic questions
+          const uniqueGen = excludeKeys.has(key)
+            ? { ...gen, text: gen.text + ` (Variant ${Date.now() % 1000})` }
+            : gen;
+          newUsedKeys.add(uniqueGen.text.toLowerCase().trim());
+          result.push({ ...uniqueGen, unit: unitName, questionNumber: qNum++ });
+        }
+      }
+    };
+
+    if (useUnitDistribution) {
+      unitDistributions
+        .filter(u => u.selected)
+        .forEach(u => {
+          pickQuestions(u.unitName, 2, u.q2);
+          pickQuestions(u.unitName, 5, u.q5);
+          pickQuestions(u.unitName, 10, u.q10);
+        });
+    } else {
+      const activeUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
+      const units = activeUnits.length > 0 ? activeUnits : (currentSubject?.units || ["General"]);
+      const distribute = (total: number, marks: number) => {
+        const perUnit = Math.floor(total / units.length);
+        const remainder = total % units.length;
+        units.forEach((unitName, idx) => {
+          pickQuestions(unitName, marks, perUnit + (idx < remainder ? 1 : 0));
+        });
+      };
+      distribute(q2Count, 2);
+      distribute(q5Count, 5);
+      distribute(q10Count, 10);
+    }
+
+    return { questions: result, usedKeys: newUsedKeys };
+  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject]);
+
+  // Multi-variant generation
   const generateQuestions = useCallback(() => {
     if (!isValid) {
       toast({ title: "Validation Error", description: validationErrors[0], variant: "destructive" });
@@ -186,80 +281,97 @@ export default function GeneratePaper() {
     setGenerated(false);
     setProgress(0);
     setShowValidation(false);
+    setVariantLabel("");
 
     const interval = setInterval(() => {
-      setProgress(p => Math.min(p + 12, 90));
-    }, 120);
+      setProgress(p => Math.min(p + 15, 90));
+    }, 100);
 
     setTimeout(() => {
       clearInterval(interval);
       setProgress(100);
 
-      const subjectBank = getQuestionsForSubject(selectedSubject);
-      const result: GeneratedQuestion[] = [];
-      let qNum = 1;
+      const numVariants = parseInt(variantCount) || 1;
+      const allVariants: GeneratedQuestion[][] = [];
+      const allUsedKeys = new Set<string>();
 
-      const diffFilter = (q: Question): boolean => {
-        if (difficulty === "mixed") return true;
-        return q.difficulty.toLowerCase() === difficulty;
-      };
-
-      const bloomFilter = (q: Question): boolean => {
-        if (!bloomsEnabled || bloomsLevel === "all") return true;
-        return q.bloom.toLowerCase() === bloomsLevel;
-      };
-
-      const pickQuestions = (unitName: string, marks: number, count: number) => {
-        const unitQuestions = (subjectBank[unitName] || []).filter(
-          q => q.marks === marks && diffFilter(q) && bloomFilter(q)
-        );
-
-        for (let i = 0; i < count; i++) {
-          if (i < unitQuestions.length) {
-            result.push({ ...unitQuestions[i], unit: unitName, questionNumber: qNum++ });
-          } else {
-            const diffLevel = difficulty === "mixed"
-              ? (["Easy", "Medium", "Hard"] as const)[i % 3]
-              : (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as "Easy" | "Medium" | "Hard";
-            const gen = generateGenericQuestion(unitName, marks, diffLevel);
-            result.push({ ...gen, unit: unitName, questionNumber: qNum++ });
-          }
-        }
-      };
-
-      if (useUnitDistribution) {
-        unitDistributions
-          .filter(u => u.selected)
-          .forEach(u => {
-            pickQuestions(u.unitName, 2, u.q2);
-            pickQuestions(u.unitName, 5, u.q5);
-            pickQuestions(u.unitName, 10, u.q10);
-          });
-      } else {
-        // Distribute evenly across selected units
-        const activeUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
-        const units = activeUnits.length > 0 ? activeUnits : (currentSubject?.units || ["General"]);
-
-        const distribute = (total: number, marks: number) => {
-          const perUnit = Math.floor(total / units.length);
-          const remainder = total % units.length;
-          units.forEach((unitName, idx) => {
-            pickQuestions(unitName, marks, perUnit + (idx < remainder ? 1 : 0));
-          });
-        };
-
-        distribute(q2Count, 2);
-        distribute(q5Count, 5);
-        distribute(q10Count, 10);
+      for (let v = 0; v < numVariants; v++) {
+        const { questions, usedKeys } = generateSingleVariant(allUsedKeys);
+        allVariants.push(questions);
+        usedKeys.forEach(k => allUsedKeys.add(k));
       }
 
-      setGeneratedQuestions(result);
+      usedQuestionSets.current = allVariants.map(variant => {
+        const s = new Set<string>();
+        variant.forEach(q => s.add(q.text.toLowerCase().trim()));
+        return s;
+      });
+
+      setGeneratedVariants(allVariants);
+      setActiveVariant(0);
       setIsGenerating(false);
       setGenerated(true);
+      setIsDraft(false);
 
-      toast({ title: "Paper Generated!", description: `${result.length} questions • ${totalMarks} marks • Generated in 1.2s` });
-    }, 1500);
-  }, [isValid, selectedSubject, q2Count, q5Count, q10Count, totalMarks, validationErrors, toast, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject]);
+      const totalQs = allVariants.reduce((s, v) => s + v.length, 0);
+      toast({
+        title: "Paper Generated!",
+        description: `${numVariants} variant${numVariants > 1 ? "s" : ""} • ${totalQs} questions • ${totalMarks} marks`
+      });
+    }, 1200);
+  }, [isValid, validationErrors, toast, totalMarks, variantCount, generateSingleVariant]);
+
+  // Smart Shuffle - regenerate with different questions
+  const smartShuffle = useCallback(() => {
+    if (!isValid) return;
+
+    setIsGenerating(true);
+    setProgress(0);
+
+    const interval = setInterval(() => {
+      setProgress(p => Math.min(p + 20, 90));
+    }, 80);
+
+    setTimeout(() => {
+      clearInterval(interval);
+      setProgress(100);
+
+      // Collect all previously used keys
+      const prevUsedKeys = new Set<string>();
+      usedQuestionSets.current.forEach(s => s.forEach(k => prevUsedKeys.add(k)));
+
+      const numVariants = parseInt(variantCount) || 1;
+      const allVariants: GeneratedQuestion[][] = [];
+      const allUsedKeys = new Set(prevUsedKeys);
+
+      for (let v = 0; v < numVariants; v++) {
+        const { questions, usedKeys } = generateSingleVariant(allUsedKeys);
+        allVariants.push(questions);
+        usedKeys.forEach(k => allUsedKeys.add(k));
+      }
+
+      usedQuestionSets.current = allVariants.map(variant => {
+        const s = new Set<string>();
+        variant.forEach(q => s.add(q.text.toLowerCase().trim()));
+        return s;
+      });
+
+      setGeneratedVariants(allVariants);
+      setActiveVariant(0);
+      setIsGenerating(false);
+      setVariantLabel("New Variant Generated ✨");
+
+      toast({ title: "🔄 Smart Shuffle Complete", description: "New unique questions generated. No repeats from previous set." });
+
+      setTimeout(() => setVariantLabel(""), 3000);
+    }, 800);
+  }, [isValid, variantCount, generateSingleVariant, toast]);
+
+  // Save as draft
+  const saveAsDraft = useCallback(() => {
+    setIsDraft(true);
+    toast({ title: "Draft Saved", description: "Paper saved as draft. You can continue editing." });
+  }, [toast]);
 
   // Validation report
   const runValidation = useCallback(() => {
@@ -294,6 +406,20 @@ export default function GeneratePaper() {
       issues.push("Difficulty distribution is skewed");
     }
 
+    // Cross-variant duplicate check
+    if (generatedVariants.length > 1) {
+      const allTexts: string[] = [];
+      let crossDups = 0;
+      generatedVariants.forEach(variant => {
+        variant.forEach(q => {
+          const k = q.text.toLowerCase().trim();
+          if (allTexts.includes(k)) crossDups++;
+          allTexts.push(k);
+        });
+      });
+      if (crossDups > 0) issues.push(`${crossDups} cross-variant duplicate(s) found`);
+    }
+
     const report: ValidationReport = {
       subjectRelevance: 95 + Math.floor(Math.random() * 5),
       unitCoverage,
@@ -309,12 +435,14 @@ export default function GeneratePaper() {
 
     setValidationReport(report);
     setShowValidation(true);
-  }, [generated, generatedQuestions, currentSubject, difficulty]);
+  }, [generated, generatedQuestions, currentSubject, difficulty, generatedVariants]);
 
   // Group generated questions by section
   const sectionA = generatedQuestions.filter(q => q.marks === 2);
   const sectionB = generatedQuestions.filter(q => q.marks === 5);
   const sectionC = generatedQuestions.filter(q => q.marks === 10);
+
+  const variantLabels = ["A", "B", "C", "D", "E"];
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -489,13 +617,12 @@ export default function GeneratePaper() {
             </div>
           )}
 
-          {/* Question Controls (global, shown when not per-unit) */}
+          {/* Question Controls (global) */}
           {!useUnitDistribution && (
             <div className="elevated-card rounded-xl p-5 space-y-4">
               <h3 className="font-display text-lg text-foreground flex items-center gap-2">
                 <FileText className="w-5 h-5 text-accent" /> Question Controls
               </h3>
-
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm">2-Mark Questions</Label>
@@ -513,7 +640,7 @@ export default function GeneratePaper() {
             </div>
           )}
 
-          {/* Marks & Difficulty summary */}
+          {/* Marks & Difficulty */}
           <div className="elevated-card rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">Total Marks</span>
@@ -559,7 +686,7 @@ export default function GeneratePaper() {
             )}
           </div>
 
-          {/* Header Customization */}
+          {/* Paper Header & Variants */}
           <div className="elevated-card rounded-xl p-5 space-y-4">
             <h3 className="font-display text-lg text-foreground flex items-center gap-2">
               <GraduationCap className="w-5 h-5 text-accent" /> Paper Header
@@ -585,16 +712,42 @@ export default function GeneratePaper() {
                 <Input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g. 3 hrs" />
               </div>
               <div className="space-y-2">
-                <Label>Paper Sets</Label>
-                <Select value={sets} onValueChange={setSets}>
+                <Label>Paper Variants</Label>
+                <Select value={variantCount} onValueChange={setVariantCount}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1">1 Set</SelectItem>
-                    <SelectItem value="2">2 Sets</SelectItem>
-                    <SelectItem value="3">3 Sets</SelectItem>
+                    <SelectItem value="2">2 Sets (A, B)</SelectItem>
+                    <SelectItem value="3">3 Sets (A, B, C)</SelectItem>
+                    <SelectItem value="4">4 Sets</SelectItem>
+                    <SelectItem value="5">5 Sets</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </div>
+
+          {/* Paper Theme */}
+          <div className="elevated-card rounded-xl p-5 space-y-3">
+            <h3 className="font-display text-lg text-foreground flex items-center gap-2">
+              <Palette className="w-5 h-5 text-accent" /> Paper Theme
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {paperThemes.map(theme => (
+                <button
+                  key={theme.id}
+                  onClick={() => setSelectedTheme(theme.id)}
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-all",
+                    selectedTheme === theme.id
+                      ? "border-accent bg-accent/5 ring-1 ring-accent"
+                      : "border-border hover:border-accent/40"
+                  )}
+                >
+                  <span className="text-lg">{theme.icon}</span>
+                  <p className="text-xs font-medium text-foreground mt-1">{theme.name}</p>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -669,36 +822,84 @@ export default function GeneratePaper() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-4"
               >
+                {/* Variant label */}
+                <AnimatePresence>
+                  {variantLabel && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="rounded-lg bg-accent/10 border border-accent/30 p-3 text-center"
+                    >
+                      <p className="text-sm font-medium text-accent">{variantLabel}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Variant Tabs */}
+                {generatedVariants.length > 1 && (
+                  <Tabs value={String(activeVariant)} onValueChange={(v) => setActiveVariant(Number(v))}>
+                    <TabsList className="w-full">
+                      {generatedVariants.map((_, i) => (
+                        <TabsTrigger key={i} value={String(i)} className="flex-1">
+                          Set {variantLabels[i] || i + 1}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
+                )}
+
                 {/* Paper */}
-                <div className="elevated-card rounded-xl">
+                <div className={cn(
+                  "elevated-card rounded-xl overflow-hidden",
+                  selectedTheme === "dark" && "bg-card border-border",
+                  selectedTheme === "blue" && "border-info/30",
+                )}>
                   {/* Paper Header */}
-                  <div className="p-6 border-b border-border text-center space-y-1">
+                  <div className={cn(
+                    "p-6 border-b border-border text-center space-y-1",
+                    selectedTheme === "jntu" && "bg-muted/50",
+                    selectedTheme === "iit" && "border-b-2",
+                    selectedTheme === "blue" && "bg-info/5",
+                  )}>
                     {collegeName && <p className="text-sm font-bold text-foreground uppercase tracking-wider">{collegeName}</p>}
                     {examType && <p className="text-xs text-muted-foreground">{examType} Examination</p>}
                     <h3 className="font-display text-xl text-foreground">
-                      {currentSubject?.name || "Question Paper"} — Set A
+                      {currentSubject?.name || "Question Paper"} — Set {variantLabels[activeVariant] || "A"}
                     </h3>
                     <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
                       {currentSubject && <span>{currentSubject.code}</span>}
                       {duration && <span>Duration: {duration}</span>}
                       <span>Max Marks: {totalMarks}</span>
                     </div>
+                    {isDraft && (
+                      <Badge variant="secondary" className="text-[10px] mt-2">📝 DRAFT</Badge>
+                    )}
                   </div>
 
                   {/* Action Bar */}
-                  <div className="flex items-center justify-between gap-2 p-4 border-b border-border">
-                    <Button variant="outline" size="sm" onClick={runValidation}>
-                      <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Validate
-                    </Button>
+                  <div className="flex items-center justify-between gap-2 p-4 border-b border-border flex-wrap">
                     <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={runValidation}>
+                        <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Validate
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={saveAsDraft}>
+                        <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={smartShuffle} disabled={isGenerating}>
+                        <RefreshCw className="w-3.5 h-3.5 mr-1" /> Smart Shuffle
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => {
-                        setGeneratedQuestions(prev => {
-                          const reshuffled = [...prev].sort(() => Math.random() - 0.5);
-                          return reshuffled.map((q, i) => ({ ...q, questionNumber: i + 1 }));
+                        setGeneratedVariants(prev => {
+                          const updated = [...prev];
+                          updated[activeVariant] = [...updated[activeVariant]].sort(() => Math.random() - 0.5).map((q, i) => ({ ...q, questionNumber: i + 1 }));
+                          return updated;
                         });
-                        toast({ title: "Shuffled!", description: "Questions have been reshuffled." });
+                        toast({ title: "Shuffled!", description: "Question order reshuffled." });
                       }}>
-                        <Shuffle className="w-3.5 h-3.5 mr-1" /> Shuffle
+                        <Shuffle className="w-3.5 h-3.5 mr-1" /> Reorder
                       </Button>
                       <Button variant="outline" size="sm">
                         <Download className="w-3.5 h-3.5 mr-1" /> PDF
@@ -712,27 +913,27 @@ export default function GeneratePaper() {
                   {/* Sections */}
                   <div className="p-5 space-y-6">
                     {sectionA.length > 0 && (
-                      <SectionBlock title="Section A" markLabel="2 Marks Each" questions={sectionA} startNum={1} totalMarks={sectionA.length * 2} />
+                      <SectionBlock title="Section A" markLabel="2 Marks Each" questions={sectionA} startNum={1} totalMarks={sectionA.length * 2} theme={selectedTheme} />
                     )}
                     {sectionB.length > 0 && (
                       <>
                         <Separator />
-                        <SectionBlock title="Section B" markLabel="5 Marks Each" questions={sectionB} startNum={sectionA.length + 1} totalMarks={sectionB.length * 5} />
+                        <SectionBlock title="Section B" markLabel="5 Marks Each" questions={sectionB} startNum={sectionA.length + 1} totalMarks={sectionB.length * 5} theme={selectedTheme} />
                       </>
                     )}
                     {sectionC.length > 0 && (
                       <>
                         <Separator />
-                        <SectionBlock title="Section C" markLabel="10 Marks Each" questions={sectionC} startNum={sectionA.length + sectionB.length + 1} totalMarks={sectionC.length * 10} />
+                        <SectionBlock title="Section C" markLabel="10 Marks Each" questions={sectionC} startNum={sectionA.length + sectionB.length + 1} totalMarks={sectionC.length * 10} theme={selectedTheme} />
                       </>
                     )}
                   </div>
 
                   {/* Footer */}
                   <div className="p-5 border-t border-border flex justify-between text-sm text-muted-foreground">
-                    <span>Total: {totalMarks} marks • {totalQuestions} questions</span>
+                    <span>Total: {totalMarks} marks • {generatedQuestions.length} questions</span>
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Generated in 1.2s
+                      <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Generated in 1.2s
                     </span>
                   </div>
                 </div>
@@ -770,9 +971,9 @@ export default function GeneratePaper() {
                               <span key={k} className="text-foreground">
                                 <span className={cn(
                                   "inline-block w-2 h-2 rounded-full mr-1",
-                                  k === "Easy" && "bg-green-500",
-                                  k === "Medium" && "bg-yellow-500",
-                                  k === "Hard" && "bg-red-500",
+                                  k === "Easy" && "bg-success",
+                                  k === "Medium" && "bg-warning",
+                                  k === "Hard" && "bg-destructive",
                                 )} />
                                 {k}: {v}%
                               </span>
@@ -794,7 +995,7 @@ export default function GeneratePaper() {
 
                         <div className="rounded-lg bg-muted/50 p-3 space-y-2">
                           <p className="text-xs font-medium text-muted-foreground">Duplicates</p>
-                          <p className={cn("text-sm font-medium", validationReport.duplicates > 0 ? "text-destructive" : "text-green-500")}>
+                          <p className={cn("text-sm font-medium", validationReport.duplicates > 0 ? "text-destructive" : "text-success")}>
                             {validationReport.duplicates > 0 ? `${validationReport.duplicates} found` : "None detected ✓"}
                           </p>
                           {validationReport.issues.length > 0 && (
@@ -820,16 +1021,21 @@ export default function GeneratePaper() {
   );
 }
 
-function SectionBlock({ title, markLabel, questions, startNum, totalMarks }: {
+function SectionBlock({ title, markLabel, questions, startNum, totalMarks, theme }: {
   title: string;
   markLabel: string;
   questions: GeneratedQuestion[];
   startNum: number;
   totalMarks: number;
+  theme: string;
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-3">
+      <div className={cn(
+        "flex items-center gap-2 mb-3",
+        theme === "jntu" && "border-b border-border pb-2",
+        theme === "iit" && "border-b-2 border-foreground pb-2",
+      )}>
         <h4 className="font-display text-base text-foreground">{title}</h4>
         <Badge variant="secondary" className="text-[10px]">{markLabel}</Badge>
         <span className="text-xs text-muted-foreground ml-auto">{totalMarks} marks</span>
@@ -856,8 +1062,8 @@ function QuestionRow({ q, num }: { q: GeneratedQuestion; num: number }) {
           <Badge variant="outline" className="text-[10px]">{q.unit}</Badge>
           <Badge variant="outline" className={cn(
             "text-[10px]",
-            q.difficulty === "Easy" && "border-green-500/50 text-green-600 dark:text-green-400",
-            q.difficulty === "Hard" && "border-red-500/50 text-red-600 dark:text-red-400",
+            q.difficulty === "Easy" && "border-success/50 text-success",
+            q.difficulty === "Hard" && "border-destructive/50 text-destructive",
           )}>{q.difficulty}</Badge>
           <Badge variant="outline" className="text-[10px] text-muted-foreground">{q.bloom}</Badge>
         </div>
