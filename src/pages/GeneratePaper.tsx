@@ -20,6 +20,8 @@ import { subjects, branches, getSubjectById, type Subject } from "@/data/subject
 import { getQuestionsForSubject, generateGenericQuestion, type Question } from "@/data/questionBank";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { exportAsPdf, exportAsDocx, exportAsTxt, exportAsZip } from "@/lib/exportUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const examTypes = ["Mid Semester", "End Semester", "Internal Assessment", "Supplementary"];
 
@@ -368,10 +370,30 @@ export default function GeneratePaper() {
   }, [isValid, variantCount, generateSingleVariant, toast]);
 
   // Save as draft
-  const saveAsDraft = useCallback(() => {
+  const saveAsDraft = useCallback(async () => {
     setIsDraft(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && currentSubject) {
+      await supabase.from("papers").insert({
+        user_id: user.id,
+        title: `${currentSubject.name} - ${examType || "Paper"}`,
+        subject: currentSubject.name,
+        department: department,
+        max_marks: totalMarks,
+        total_questions: totalQuestions,
+        questions: generatedQuestions as any,
+        paper_data: { collegeName, examType, duration, theme: selectedTheme } as any,
+        is_draft: true,
+        difficulty,
+        theme: selectedTheme,
+        subject_code: currentSubject.code,
+        college_name: collegeName || null,
+        exam_type: examType || null,
+        duration: duration || null,
+      });
+    }
     toast({ title: "Draft Saved", description: "Paper saved as draft. You can continue editing." });
-  }, [toast]);
+  }, [toast, currentSubject, department, totalMarks, totalQuestions, generatedQuestions, collegeName, examType, duration, selectedTheme, difficulty]);
 
   // Validation report
   const runValidation = useCallback(() => {
@@ -901,12 +923,36 @@ export default function GeneratePaper() {
                       }}>
                         <Shuffle className="w-3.5 h-3.5 mr-1" /> Reorder
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const qs = generatedQuestions.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty }));
+                        const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, setLabel: `Set ${variantLabels[activeVariant] || "A"}`, watermark: true, paperId: `CQ-${Date.now().toString(36).toUpperCase()}` };
+                        exportAsPdf(qs, meta);
+                      }}>
                         <Download className="w-3.5 h-3.5 mr-1" /> PDF
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const qs = generatedQuestions.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty }));
+                        const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, setLabel: `Set ${variantLabels[activeVariant] || "A"}`, watermark: true };
+                        exportAsDocx(qs, meta);
+                      }}>
                         <Download className="w-3.5 h-3.5 mr-1" /> DOCX
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const qs = generatedQuestions.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty }));
+                        const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, setLabel: `Set ${variantLabels[activeVariant] || "A"}`, watermark: true };
+                        exportAsTxt(qs, meta);
+                      }}>
+                        <Download className="w-3.5 h-3.5 mr-1" /> TXT
+                      </Button>
+                      {generatedVariants.length > 1 && (
+                        <Button variant="outline" size="sm" onClick={() => {
+                          const allVars = generatedVariants.map(v => v.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty })));
+                          const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, watermark: true };
+                          exportAsZip(allVars, meta);
+                        }}>
+                          <Download className="w-3.5 h-3.5 mr-1" /> ZIP
+                        </Button>
+                      )}
                     </div>
                   </div>
 
