@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Upload,
+  FolderOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,8 @@ const navItems = [
   { to: "/subjects", icon: GraduationCap, label: "Subjects" },
   { to: "/question-bank", icon: Database, label: "Question Bank" },
   { to: "/generate", icon: Zap, label: "Generate Paper" },
+  { to: "/upload", icon: Upload, label: "Upload Paper" },
+  { to: "/saved", icon: FolderOpen, label: "Saved Papers" },
   { to: "/blueprints", icon: BookOpen, label: "Blueprints" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/papers", icon: FileText, label: "Past Papers" },

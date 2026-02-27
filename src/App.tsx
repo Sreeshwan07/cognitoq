@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import SubjectLibrary from "./pages/SubjectLibrary";
 import QuestionBank from "./pages/QuestionBank";
 import GeneratePaper from "./pages/GeneratePaper";
+import UploadPaper from "./pages/UploadPaper";
+import SavedPapers from "./pages/SavedPapers";
 import Blueprints from "./pages/Blueprints";
 import Analytics from "./pages/Analytics";
 import PastPapers from "./pages/PastPapers";
@@ -29,6 +31,8 @@ const App = () => (
             <Route path="/subjects" element={<SubjectLibrary />} />
             <Route path="/question-bank" element={<QuestionBank />} />
             <Route path="/generate" element={<GeneratePaper />} />
+            <Route path="/upload" element={<UploadPaper />} />
+            <Route path="/saved" element={<SavedPapers />} />
             <Route path="/blueprints" element={<Blueprints />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/papers" element={<PastPapers />} />
