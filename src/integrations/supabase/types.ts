@@ -22,6 +22,7 @@ export type Database = {
           difficulty: string | null
           duration: string | null
           exam_type: string | null
+          generation_time_ms: number | null
           id: string
           is_draft: boolean
           max_marks: number
@@ -46,6 +47,7 @@ export type Database = {
           difficulty?: string | null
           duration?: string | null
           exam_type?: string | null
+          generation_time_ms?: number | null
           id?: string
           is_draft?: boolean
           max_marks?: number
@@ -70,6 +72,7 @@ export type Database = {
           difficulty?: string | null
           duration?: string | null
           exam_type?: string | null
+          generation_time_ms?: number | null
           id?: string
           is_draft?: boolean
           max_marks?: number
