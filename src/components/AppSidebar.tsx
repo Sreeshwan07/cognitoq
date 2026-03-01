@@ -2,8 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Database,
-  FileText,
-  BarChart3,
+  
   Settings,
   BookOpen,
   Zap,
@@ -24,9 +23,6 @@ const navItems = [
   { to: "/generate", icon: Zap, label: "Generate Paper" },
   { to: "/upload", icon: Upload, label: "Upload Paper" },
   { to: "/saved", icon: FolderOpen, label: "Saved Papers" },
-  { to: "/blueprints", icon: BookOpen, label: "Blueprints" },
-  { to: "/analytics", icon: BarChart3, label: "Analytics" },
-  { to: "/papers", icon: FileText, label: "Past Papers" },
   { to: "/pyq", icon: BookOpen, label: "PYQ Papers" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];

@@ -10,9 +10,6 @@ import QuestionBank from "./pages/QuestionBank";
 import GeneratePaper from "./pages/GeneratePaper";
 import UploadPaper from "./pages/UploadPaper";
 import SavedPapers from "./pages/SavedPapers";
-import Blueprints from "./pages/Blueprints";
-import Analytics from "./pages/Analytics";
-import PastPapers from "./pages/PastPapers";
 import PreviousYearPapers from "./pages/PreviousYearPapers";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -33,9 +30,6 @@ const App = () => (
             <Route path="/generate" element={<GeneratePaper />} />
             <Route path="/upload" element={<UploadPaper />} />
             <Route path="/saved" element={<SavedPapers />} />
-            <Route path="/blueprints" element={<Blueprints />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/papers" element={<PastPapers />} />
             <Route path="/pyq" element={<PreviousYearPapers />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
