@@ -1,0 +1,1 @@
+ALTER TABLE public.papers ADD COLUMN IF NOT EXISTS generation_time_ms integer DEFAULT 0;

@@ -279,6 +279,7 @@ export default function GeneratePaper() {
       return;
     }
 
+    const genStartTime = Date.now();
     setIsGenerating(true);
     setGenerated(false);
     setProgress(0);
@@ -289,7 +290,7 @@ export default function GeneratePaper() {
       setProgress(p => Math.min(p + 15, 90));
     }, 100);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       clearInterval(interval);
       setProgress(100);
 
@@ -315,13 +316,43 @@ export default function GeneratePaper() {
       setGenerated(true);
       setIsDraft(false);
 
+      const generationTimeMs = Date.now() - genStartTime;
+
+      // Auto-save each variant to database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && currentSubject) {
+        const variantLabels = ["Set A", "Set B", "Set C", "Set D", "Set E"];
+        for (let v = 0; v < allVariants.length; v++) {
+          const variant = allVariants[v];
+          const label = numVariants > 1 ? variantLabels[v] || `Set ${v + 1}` : "";
+          await supabase.from("papers").insert({
+            user_id: user.id,
+            title: `${currentSubject.name} - ${examType || "Paper"}${label ? ` (${label})` : ""}`,
+            subject: currentSubject.name,
+            department: department,
+            max_marks: totalMarks,
+            total_questions: variant.length,
+            questions: variant as any,
+            paper_data: { collegeName, examType, duration, theme: selectedTheme, variantLabel: label } as any,
+            is_draft: false,
+            difficulty,
+            theme: selectedTheme,
+            subject_code: currentSubject.code,
+            college_name: collegeName || null,
+            exam_type: examType || null,
+            duration: duration || null,
+            generation_time_ms: generationTimeMs,
+          } as any);
+        }
+      }
+
       const totalQs = allVariants.reduce((s, v) => s + v.length, 0);
       toast({
         title: "Paper Generated!",
         description: `${numVariants} variant${numVariants > 1 ? "s" : ""} • ${totalQs} questions • ${totalMarks} marks`
       });
     }, 1200);
-  }, [isValid, validationErrors, toast, totalMarks, variantCount, generateSingleVariant]);
+  }, [isValid, validationErrors, toast, totalMarks, variantCount, generateSingleVariant, currentSubject, department, examType, collegeName, duration, selectedTheme, difficulty]);
 
   // Smart Shuffle - regenerate with different questions
   const smartShuffle = useCallback(() => {
