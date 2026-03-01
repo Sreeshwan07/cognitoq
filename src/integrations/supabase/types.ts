@@ -29,7 +29,9 @@ export type Database = {
           paper_data: Json
           paper_id_code: string
           parent_id: string | null
+          quality_score: number | null
           questions: Json
+          score_breakdown: Json | null
           subject: string
           subject_code: string | null
           theme: string | null
@@ -54,7 +56,9 @@ export type Database = {
           paper_data?: Json
           paper_id_code?: string
           parent_id?: string | null
+          quality_score?: number | null
           questions?: Json
+          score_breakdown?: Json | null
           subject: string
           subject_code?: string | null
           theme?: string | null
@@ -79,7 +83,9 @@ export type Database = {
           paper_data?: Json
           paper_id_code?: string
           parent_id?: string | null
+          quality_score?: number | null
           questions?: Json
+          score_breakdown?: Json | null
           subject?: string
           subject_code?: string | null
           theme?: string | null

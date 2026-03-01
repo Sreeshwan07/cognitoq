@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Zap, Shuffle, Download, FileText, BookOpen,
   Building2, GraduationCap, AlertCircle, CheckCircle2,
@@ -22,6 +22,8 @@ import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { exportAsPdf, exportAsDocx, exportAsTxt, exportAsZip } from "@/lib/exportUtils";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateQualityScore, type QualityScoreResult } from "@/lib/qualityScore";
+import PaperQualityScore from "@/components/PaperQualityScore";
 
 const examTypes = ["Mid Semester", "End Semester", "Internal Assessment", "Supplementary"];
 
@@ -102,6 +104,8 @@ export default function GeneratePaper() {
   const [unitSectionOpen, setUnitSectionOpen] = useState(true);
   const [variantLabel, setVariantLabel] = useState("");
   const [isDraft, setIsDraft] = useState(false);
+  const [qualityScore, setQualityScore] = useState<QualityScoreResult | null>(null);
+  const [isImproving, setIsImproving] = useState(false);
 
   // Track previously used question IDs for smart shuffle
   const usedQuestionSets = useRef<Set<string>[]>([]);
@@ -322,9 +326,17 @@ export default function GeneratePaper() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user && currentSubject) {
         const variantLabels = ["Set A", "Set B", "Set C", "Set D", "Set E"];
+        const selectedUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
         for (let v = 0; v < allVariants.length; v++) {
           const variant = allVariants[v];
           const label = numVariants > 1 ? variantLabels[v] || `Set ${v + 1}` : "";
+          const variantScore = calculateQualityScore(
+            variant.map(q => ({ text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty, type: q.type, bloom: q.bloom })),
+            selectedUnits, totalMarks,
+            useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count,
+            useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count,
+            useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count,
+          );
           await supabase.from("papers").insert({
             user_id: user.id,
             title: `${currentSubject.name} - ${examType || "Paper"}${label ? ` (${label})` : ""}`,
@@ -342,6 +354,8 @@ export default function GeneratePaper() {
             exam_type: examType || null,
             duration: duration || null,
             generation_time_ms: generationTimeMs,
+            quality_score: variantScore.total,
+            score_breakdown: variantScore.breakdown as any,
           } as any);
         }
       }
@@ -399,6 +413,83 @@ export default function GeneratePaper() {
       setTimeout(() => setVariantLabel(""), 3000);
     }, 800);
   }, [isValid, variantCount, generateSingleVariant, toast]);
+
+  // Auto-calculate quality score when paper changes
+  useEffect(() => {
+    if (!generated || generatedQuestions.length === 0) {
+      setQualityScore(null);
+      return;
+    }
+    const selectedUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
+    const score = calculateQualityScore(
+      generatedQuestions.map(q => ({
+        text: q.text,
+        marks: q.marks,
+        unit: q.unit,
+        difficulty: q.difficulty,
+        type: q.type,
+        bloom: q.bloom,
+      })),
+      selectedUnits,
+      totalMarks,
+      useUnitDistribution
+        ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0)
+        : q2Count,
+      useUnitDistribution
+        ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0)
+        : q5Count,
+      useUnitDistribution
+        ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0)
+        : q10Count,
+    );
+    setQualityScore(score);
+  }, [generated, generatedQuestions, unitDistributions, totalMarks, q2Count, q5Count, q10Count, useUnitDistribution]);
+
+  // Improve paper quality
+  const improvePaperQuality = useCallback(() => {
+    if (!isValid || !generated) return;
+    setIsImproving(true);
+    // Re-generate with same settings — the randomness gives a new attempt
+    setTimeout(() => {
+      const numVariants = parseInt(variantCount) || 1;
+      const allVariants: GeneratedQuestion[][] = [];
+      const allUsedKeys = new Set<string>();
+
+      // Try multiple times and pick the best scoring variant set
+      let bestVariants: GeneratedQuestion[][] = [];
+      let bestScore = -1;
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const tryVariants: GeneratedQuestion[][] = [];
+        const tryKeys = new Set<string>();
+        for (let v = 0; v < numVariants; v++) {
+          const { questions, usedKeys } = generateSingleVariant(tryKeys);
+          tryVariants.push(questions);
+          usedKeys.forEach(k => tryKeys.add(k));
+        }
+
+        const selectedUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
+        const tryScore = calculateQualityScore(
+          tryVariants[0].map(q => ({ text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty, type: q.type, bloom: q.bloom })),
+          selectedUnits,
+          totalMarks,
+          useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count,
+          useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count,
+          useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count,
+        );
+
+        if (tryScore.total > bestScore) {
+          bestScore = tryScore.total;
+          bestVariants = tryVariants;
+        }
+      }
+
+      setGeneratedVariants(bestVariants);
+      setActiveVariant(0);
+      setIsImproving(false);
+      toast({ title: "✨ Paper Quality Improved", description: `Best score: ${bestScore}/100 from 5 attempts.` });
+    }, 600);
+  }, [isValid, generated, variantCount, generateSingleVariant, unitDistributions, totalMarks, q2Count, q5Count, q10Count, useUnitDistribution, toast]);
 
   // Save as draft
   const saveAsDraft = useCallback(async () => {
@@ -1089,6 +1180,15 @@ export default function GeneratePaper() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Paper Quality Score */}
+                {qualityScore && (
+                  <PaperQualityScore
+                    result={qualityScore}
+                    onImprove={improvePaperQuality}
+                    improving={isImproving}
+                  />
+                )}
               </motion.div>
             )}
           </AnimatePresence>
