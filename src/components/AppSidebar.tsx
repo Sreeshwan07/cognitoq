@@ -2,7 +2,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Database,
-  
   Settings,
   BookOpen,
   Zap,
@@ -11,10 +10,12 @@ import {
   GraduationCap,
   Upload,
   FolderOpen,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -30,6 +31,7 @@ const navItems = [
 export default function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { profile, role, signOut } = useAuth();
 
   return (
     <aside
@@ -72,14 +74,31 @@ export default function AppSidebar() {
         })}
       </nav>
 
+      {/* User info */}
+      {!collapsed && profile && (
+        <div className="px-3 py-2 border-t border-sidebar-border">
+          <p className="text-xs font-medium text-sidebar-foreground truncate">{profile.full_name || profile.email}</p>
+          <p className="text-[10px] text-sidebar-foreground/50 capitalize">{role}</p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between px-2 h-12 border-t border-sidebar-border">
         <ThemeToggle />
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-9 h-9 text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={signOut}
+            className="flex items-center justify-center w-9 h-9 text-sidebar-foreground/50 hover:text-destructive transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="flex items-center justify-center w-9 h-9 text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
     </aside>
   );
