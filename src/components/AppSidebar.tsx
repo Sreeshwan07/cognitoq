@@ -4,17 +4,18 @@ import {
   Database,
   Settings,
   BookOpen,
-  Zap,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
   Upload,
   FolderOpen,
   LogOut,
+  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./ThemeToggle";
+import cognitoQLogo from "@/assets/cognitoq-logo.jpeg";
 import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
@@ -40,10 +41,12 @@ export default function AppSidebar() {
         collapsed ? "w-[68px]" : "w-[240px]"
       )}
     >
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border">
-        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-          <Zap className="w-4 h-4 text-accent-foreground" />
-        </div>
+      <div className="flex items-center gap-3 px-3 h-16 border-b border-sidebar-border">
+        <img
+          src={cognitoQLogo}
+          alt="CognitoQ"
+          className="w-9 h-9 rounded-lg object-contain flex-shrink-0 bg-white"
+        />
         {!collapsed && (
           <span className="font-display text-lg tracking-tight text-sidebar-foreground">
             CognitoQ
