@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, Mail, Lock, User } from "lucide-react";
 import { motion } from "framer-motion";
-import cognitoQLogo from "@/assets/cognitoq-logo.jpeg";
+import cognitoQLogo from "@/assets/cognitoq-logo.png";
 
 export default function Login() {
   const navigate = useNavigate();

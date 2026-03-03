@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./ThemeToggle";
-import cognitoQLogo from "@/assets/cognitoq-logo.jpeg";
+import cognitoQLogo from "@/assets/cognitoq-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
