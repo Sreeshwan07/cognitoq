@@ -15,6 +15,7 @@ import SavedPapers from "./pages/SavedPapers";
 import PreviousYearPapers from "./pages/PreviousYearPapers";
 import SettingsPage from "./pages/Settings";
 import Login from "./pages/Login";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/saved" element={<SavedPapers />} />
               <Route path="/pyq" element={<PreviousYearPapers />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/admin" element={<AdminPanel />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
