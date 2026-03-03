@@ -11,12 +11,14 @@ import {
   FolderOpen,
   LogOut,
   Zap,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./ThemeToggle";
 import cognitoQLogo from "@/assets/cognitoq-logo.jpeg";
 import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -27,6 +29,10 @@ const navItems = [
   { to: "/saved", icon: FolderOpen, label: "Saved Papers" },
   { to: "/pyq", icon: BookOpen, label: "PYQ Papers" },
   { to: "/settings", icon: Settings, label: "Settings" },
+];
+
+const adminItems = [
+  { to: "/admin", icon: Shield, label: "Admin Panel" },
 ];
 
 export default function AppSidebar() {
@@ -75,12 +81,47 @@ export default function AppSidebar() {
             </NavLink>
           );
         })}
+
+        {role === "admin" && (
+          <>
+            {!collapsed && (
+              <div className="pt-3 pb-1 px-3">
+                <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-medium">Admin</span>
+              </div>
+            )}
+            {adminItems.map((item) => {
+              const isActive = location.pathname.startsWith(item.to);
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  )}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* User info */}
       {!collapsed && profile && (
         <div className="px-3 py-2 border-t border-sidebar-border">
-          <p className="text-xs font-medium text-sidebar-foreground truncate">{profile.full_name || profile.email}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-sidebar-foreground truncate">{profile.full_name || profile.email}</p>
+            {role === "admin" && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-sidebar-primary/40 text-sidebar-primary">
+                {profile.email?.toLowerCase() === "mdr.gemini@gmail.com" ? "SUPER ADMIN" : "ADMIN"}
+              </Badge>
+            )}
+          </div>
           <p className="text-[10px] text-sidebar-foreground/50 capitalize">{role}</p>
         </div>
       )}
