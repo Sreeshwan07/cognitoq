@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Zap, Shuffle, Download, FileText, BookOpen,
   Building2, GraduationCap, AlertCircle, CheckCircle2,
-  ShieldCheck, ChevronDown, ChevronUp, BarChart3, RefreshCw, Palette, Save
+  ShieldCheck, ChevronDown, ChevronUp, BarChart3, RefreshCw, Palette, Save, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,16 @@ interface UnitDistribution {
 interface GeneratedQuestion extends Question {
   unit: string;
   questionNumber: number;
+  orAlternative?: Question & { unit: string };
+}
+
+interface SectionConfig {
+  id: string;
+  name: string;
+  marks: number;
+  totalQuestions: number;
+  questionsToAnswer: number;
+  enableOr: boolean;
 }
 
 interface ValidationReport {
@@ -57,6 +67,12 @@ interface ValidationReport {
   issues: string[];
   passed: boolean;
 }
+
+const defaultSections: SectionConfig[] = [
+  { id: "a", name: "PART – A", marks: 2, totalQuestions: 10, questionsToAnswer: 10, enableOr: false },
+  { id: "b", name: "PART – B", marks: 5, totalQuestions: 5, questionsToAnswer: 4, enableOr: true },
+  { id: "c", name: "PART – C", marks: 10, totalQuestions: 3, questionsToAnswer: 2, enableOr: true },
+];
 
 export default function GeneratePaper() {
   const [searchParams] = useSearchParams();
@@ -72,7 +88,11 @@ export default function GeneratePaper() {
   const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>([]);
   const [useUnitDistribution, setUseUnitDistribution] = useState(false);
 
-  // Global question counts
+  // Section-based config
+  const [useSectionConfig, setUseSectionConfig] = useState(true);
+  const [sections, setSections] = useState<SectionConfig[]>(defaultSections);
+
+  // Legacy global question counts (used when section config is off)
   const [q2Count, setQ2Count] = useState(0);
   const [q5Count, setQ5Count] = useState(0);
   const [q10Count, setQ10Count] = useState(0);
@@ -102,6 +122,7 @@ export default function GeneratePaper() {
   const [showValidation, setShowValidation] = useState(false);
   const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
   const [unitSectionOpen, setUnitSectionOpen] = useState(true);
+  const [sectionConfigOpen, setSectionConfigOpen] = useState(true);
   const [variantLabel, setVariantLabel] = useState("");
   const [isDraft, setIsDraft] = useState(false);
   const [qualityScore, setQualityScore] = useState<QualityScoreResult | null>(null);
@@ -114,6 +135,9 @@ export default function GeneratePaper() {
   const generatedQuestions = generatedVariants[activeVariant] || [];
 
   const totalMarks = useMemo(() => {
+    if (useSectionConfig) {
+      return sections.reduce((sum, s) => sum + s.totalQuestions * s.marks, 0);
+    }
     if (useUnitDistribution) {
       return unitDistributions.reduce((sum, u) => {
         if (!u.selected) return sum;
@@ -121,9 +145,19 @@ export default function GeneratePaper() {
       }, 0);
     }
     return q2Count * 2 + q5Count * 5 + q10Count * 10;
-  }, [useUnitDistribution, unitDistributions, q2Count, q5Count, q10Count]);
+  }, [useSectionConfig, sections, useUnitDistribution, unitDistributions, q2Count, q5Count, q10Count]);
+
+  const answeredMarks = useMemo(() => {
+    if (useSectionConfig) {
+      return sections.reduce((sum, s) => sum + s.questionsToAnswer * s.marks, 0);
+    }
+    return totalMarks;
+  }, [useSectionConfig, sections, totalMarks]);
 
   const totalQuestions = useMemo(() => {
+    if (useSectionConfig) {
+      return sections.reduce((sum, s) => sum + s.totalQuestions, 0);
+    }
     if (useUnitDistribution) {
       return unitDistributions.reduce((sum, u) => {
         if (!u.selected) return sum;
@@ -131,7 +165,7 @@ export default function GeneratePaper() {
       }, 0);
     }
     return q2Count + q5Count + q10Count;
-  }, [useUnitDistribution, unitDistributions, q2Count, q5Count, q10Count]);
+  }, [useSectionConfig, sections, useUnitDistribution, unitDistributions, q2Count, q5Count, q10Count]);
 
   const selectedUnitsCount = unitDistributions.filter(u => u.selected).length;
 
@@ -171,15 +205,51 @@ export default function GeneratePaper() {
     }
   }, []);
 
+  // Update section config
+  const updateSection = (index: number, field: keyof SectionConfig, value: number | boolean | string) => {
+    setSections(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      // Ensure questionsToAnswer <= totalQuestions
+      if (field === "totalQuestions" && next[index].questionsToAnswer > (value as number)) {
+        next[index].questionsToAnswer = value as number;
+      }
+      return next;
+    });
+    setGenerated(false);
+    setShowValidation(false);
+  };
+
+  const addSection = () => {
+    setSections(prev => [
+      ...prev,
+      { id: String(Date.now()), name: `PART – ${String.fromCharCode(65 + prev.length)}`, marks: 5, totalQuestions: 3, questionsToAnswer: 3, enableOr: false },
+    ]);
+  };
+
+  const removeSection = (index: number) => {
+    if (sections.length <= 1) return;
+    setSections(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Validation
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
     if (!department) errors.push("Select a department");
     if (!selectedSubject) errors.push("Select a subject");
-    if (totalQuestions === 0) errors.push("Add at least one question");
+    if (useSectionConfig) {
+      if (sections.every(s => s.totalQuestions === 0)) errors.push("Add at least one question");
+      sections.forEach(s => {
+        if (s.questionsToAnswer > s.totalQuestions) {
+          errors.push(`${s.name}: Questions to answer exceeds total`);
+        }
+      });
+    } else {
+      if (totalQuestions === 0) errors.push("Add at least one question");
+    }
     if (useUnitDistribution && selectedUnitsCount === 0) errors.push("Select at least one unit");
     return errors;
-  }, [department, selectedSubject, totalQuestions, useUnitDistribution, selectedUnitsCount]);
+  }, [department, selectedSubject, useSectionConfig, sections, totalQuestions, useUnitDistribution, selectedUnitsCount]);
 
   const isValid = validationErrors.length === 0;
 
@@ -204,6 +274,41 @@ export default function GeneratePaper() {
     setUnitDistributions(prev => prev.map(u => ({ ...u, selected })));
   };
 
+  // Pre-generation validation: check question bank availability
+  const preGenerationCheck = useCallback((): string[] => {
+    const warnings: string[] = [];
+    const subjectBank = getQuestionsForSubject(selectedSubject);
+    const activeUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
+    const units = activeUnits.length > 0 ? activeUnits : (currentSubject?.units || []);
+
+    if (useSectionConfig) {
+      sections.forEach(section => {
+        const marksNeeded = section.marks;
+        // Count total questions available for this marks level across all units
+        let totalAvailable = 0;
+        units.forEach(unitName => {
+          const unitQs = subjectBank[unitName] || [];
+          totalAvailable += unitQs.filter(q => q.marks === marksNeeded).length;
+        });
+
+        const needed = section.enableOr ? section.totalQuestions * 2 : section.totalQuestions;
+        if (totalAvailable < needed) {
+          warnings.push(`${section.name} (${marksNeeded}M): Need ${needed} questions, only ${totalAvailable} available in bank. Generic questions will be used.`);
+        }
+
+        // Check unit coverage
+        units.forEach(unitName => {
+          const unitQs = (subjectBank[unitName] || []).filter(q => q.marks === marksNeeded);
+          if (unitQs.length === 0 && section.totalQuestions > 0) {
+            warnings.push(`${section.name}: No ${marksNeeded}M questions for "${unitName}"`);
+          }
+        });
+      });
+    }
+
+    return warnings;
+  }, [selectedSubject, unitDistributions, currentSubject, useSectionConfig, sections]);
+
   // Core generation engine for a single variant
   const generateSingleVariant = useCallback((excludeKeys: Set<string>): { questions: GeneratedQuestion[]; usedKeys: Set<string> } => {
     const subjectBank = getQuestionsForSubject(selectedSubject);
@@ -221,66 +326,144 @@ export default function GeneratePaper() {
       return q.bloom.toLowerCase() === bloomsLevel;
     };
 
-    const pickQuestions = (unitName: string, marks: number, count: number) => {
-      const unitQuestions = (subjectBank[unitName] || []).filter(
-        q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim())
-      );
+    const activeUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
+    const units = activeUnits.length > 0 ? activeUnits : (currentSubject?.units || ["General"]);
 
-      // Shuffle available questions
-      const shuffled = [...unitQuestions].sort(() => Math.random() - 0.5);
+    const pickQuestionsFromPool = (marks: number, count: number, needOr: boolean): GeneratedQuestion[] => {
+      const picked: GeneratedQuestion[] = [];
 
-      for (let i = 0; i < count; i++) {
-        if (i < shuffled.length) {
-          const key = shuffled[i].text.toLowerCase().trim();
-          newUsedKeys.add(key);
-          result.push({ ...shuffled[i], unit: unitName, questionNumber: qNum++ });
+      // Distribute evenly across units
+      const perUnit = Math.floor(count / units.length);
+      const remainder = count % units.length;
+
+      // Collect available questions per unit
+      const unitPools: Record<string, Question[]> = {};
+      units.forEach(unitName => {
+        unitPools[unitName] = [...(subjectBank[unitName] || [])].filter(
+          q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim()) && !newUsedKeys.has(q.text.toLowerCase().trim())
+        ).sort(() => Math.random() - 0.5);
+      });
+
+      let unitIndex = 0;
+      let questionsNeeded = count;
+      const unitOrder = [...units].sort(() => Math.random() - 0.5);
+
+      // Round-robin across units for even distribution
+      while (questionsNeeded > 0) {
+        const unitName = unitOrder[unitIndex % unitOrder.length];
+        const pool = unitPools[unitName];
+
+        let mainQ: Question;
+        if (pool && pool.length > 0) {
+          mainQ = pool.shift()!;
         } else {
           const diffLevel = difficulty === "mixed"
-            ? (["Easy", "Medium", "Hard"] as const)[i % 3]
+            ? (["Easy", "Medium", "Hard"] as const)[questionsNeeded % 3]
             : (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as "Easy" | "Medium" | "Hard";
-          const gen = generateGenericQuestion(unitName, marks, diffLevel);
-          const key = gen.text.toLowerCase().trim();
-          // Append variant-unique suffix for generic questions
-          const uniqueGen = excludeKeys.has(key)
-            ? { ...gen, text: gen.text + ` (Variant ${Date.now() % 1000})` }
-            : gen;
-          newUsedKeys.add(uniqueGen.text.toLowerCase().trim());
-          result.push({ ...uniqueGen, unit: unitName, questionNumber: qNum++ });
+          mainQ = generateGenericQuestion(unitName, marks, diffLevel);
         }
+
+        const key = mainQ.text.toLowerCase().trim();
+        newUsedKeys.add(key);
+
+        const genQ: GeneratedQuestion = { ...mainQ, unit: unitName, questionNumber: qNum++ };
+
+        // Generate OR alternative if enabled
+        if (needOr) {
+          // Find another question from SAME unit with SAME marks
+          const orPool = (unitPools[unitName] || []).filter(
+            q => !newUsedKeys.has(q.text.toLowerCase().trim())
+          );
+
+          let orQ: Question;
+          if (orPool.length > 0) {
+            orQ = orPool[0];
+            // Remove from pool
+            const idx = unitPools[unitName]?.indexOf(orQ);
+            if (idx !== undefined && idx >= 0) unitPools[unitName]?.splice(idx, 1);
+          } else {
+            const diffLevel = difficulty === "mixed"
+              ? (["Medium", "Hard", "Easy"] as const)[questionsNeeded % 3]
+              : (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as "Easy" | "Medium" | "Hard";
+            orQ = generateGenericQuestion(unitName, marks, diffLevel);
+            // Ensure different text
+            if (orQ.text === mainQ.text) {
+              orQ = { ...orQ, text: orQ.text + " (alternative approach)" };
+            }
+          }
+
+          const orKey = orQ.text.toLowerCase().trim();
+          newUsedKeys.add(orKey);
+          genQ.orAlternative = { ...orQ, unit: unitName };
+        }
+
+        picked.push(genQ);
+        questionsNeeded--;
+        unitIndex++;
       }
+
+      return picked;
     };
 
-    if (useUnitDistribution) {
-      unitDistributions
-        .filter(u => u.selected)
-        .forEach(u => {
-          pickQuestions(u.unitName, 2, u.q2);
-          pickQuestions(u.unitName, 5, u.q5);
-          pickQuestions(u.unitName, 10, u.q10);
-        });
-    } else {
-      const activeUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
-      const units = activeUnits.length > 0 ? activeUnits : (currentSubject?.units || ["General"]);
-      const distribute = (total: number, marks: number) => {
-        const perUnit = Math.floor(total / units.length);
-        const remainder = total % units.length;
-        units.forEach((unitName, idx) => {
-          pickQuestions(unitName, marks, perUnit + (idx < remainder ? 1 : 0));
-        });
+    if (useSectionConfig) {
+      // Section-based generation
+      sections.forEach(section => {
+        const sectionQuestions = pickQuestionsFromPool(section.marks, section.totalQuestions, section.enableOr);
+        result.push(...sectionQuestions);
+      });
+    } else if (useUnitDistribution) {
+      // Legacy per-unit distribution
+      const pickQuestions = (unitName: string, marks: number, count: number) => {
+        const unitQuestions = (subjectBank[unitName] || []).filter(
+          q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim())
+        );
+        const shuffled = [...unitQuestions].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < count; i++) {
+          if (i < shuffled.length) {
+            const key = shuffled[i].text.toLowerCase().trim();
+            newUsedKeys.add(key);
+            result.push({ ...shuffled[i], unit: unitName, questionNumber: qNum++ });
+          } else {
+            const diffLevel = difficulty === "mixed"
+              ? (["Easy", "Medium", "Hard"] as const)[i % 3]
+              : (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as "Easy" | "Medium" | "Hard";
+            const gen = generateGenericQuestion(unitName, marks, diffLevel);
+            newUsedKeys.add(gen.text.toLowerCase().trim());
+            result.push({ ...gen, unit: unitName, questionNumber: qNum++ });
+          }
+        }
       };
-      distribute(q2Count, 2);
-      distribute(q5Count, 5);
-      distribute(q10Count, 10);
+      unitDistributions.filter(u => u.selected).forEach(u => {
+        pickQuestions(u.unitName, 2, u.q2);
+        pickQuestions(u.unitName, 5, u.q5);
+        pickQuestions(u.unitName, 10, u.q10);
+      });
+    } else {
+      // Legacy global counts
+      const qs2 = pickQuestionsFromPool(2, q2Count, false);
+      const qs5 = pickQuestionsFromPool(5, q5Count, false);
+      const qs10 = pickQuestionsFromPool(10, q10Count, false);
+      result.push(...qs2, ...qs5, ...qs10);
     }
 
     return { questions: result, usedKeys: newUsedKeys };
-  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject]);
+  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject, useSectionConfig, sections]);
 
   // Multi-variant generation
   const generateQuestions = useCallback(() => {
     if (!isValid) {
       toast({ title: "Validation Error", description: validationErrors[0], variant: "destructive" });
       return;
+    }
+
+    // Pre-generation warnings
+    const warnings = preGenerationCheck();
+    if (warnings.length > 0) {
+      toast({
+        title: "⚠ Question Bank Warning",
+        description: warnings[0],
+        variant: "destructive",
+      });
     }
 
     const genStartTime = Date.now();
@@ -310,7 +493,10 @@ export default function GeneratePaper() {
 
       usedQuestionSets.current = allVariants.map(variant => {
         const s = new Set<string>();
-        variant.forEach(q => s.add(q.text.toLowerCase().trim()));
+        variant.forEach(q => {
+          s.add(q.text.toLowerCase().trim());
+          if (q.orAlternative) s.add(q.orAlternative.text.toLowerCase().trim());
+        });
         return s;
       });
 
@@ -322,30 +508,32 @@ export default function GeneratePaper() {
 
       const generationTimeMs = Date.now() - genStartTime;
 
+      // Compute effective counts for quality score
+      const effectiveQ2 = useSectionConfig ? sections.filter(s => s.marks === 2).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count);
+      const effectiveQ5 = useSectionConfig ? sections.filter(s => s.marks === 5).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count);
+      const effectiveQ10 = useSectionConfig ? sections.filter(s => s.marks === 10).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count);
+
       // Auto-save each variant to database
       const { data: { user } } = await supabase.auth.getUser();
       if (user && currentSubject) {
-        const variantLabels = ["Set A", "Set B", "Set C", "Set D", "Set E"];
+        const variantLabelsArr = ["Set A", "Set B", "Set C", "Set D", "Set E"];
         const selectedUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
         for (let v = 0; v < allVariants.length; v++) {
           const variant = allVariants[v];
-          const label = numVariants > 1 ? variantLabels[v] || `Set ${v + 1}` : "";
+          const label = numVariants > 1 ? variantLabelsArr[v] || `Set ${v + 1}` : "";
           const variantScore = calculateQualityScore(
             variant.map(q => ({ text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty, type: q.type, bloom: q.bloom })),
-            selectedUnits, totalMarks,
-            useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count,
-            useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count,
-            useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count,
+            selectedUnits, totalMarks, effectiveQ2, effectiveQ5, effectiveQ10,
           );
           await supabase.from("papers").insert({
             user_id: user.id,
             title: `${currentSubject.name} - ${examType || "Paper"}${label ? ` (${label})` : ""}`,
             subject: currentSubject.name,
             department: department,
-            max_marks: totalMarks,
+            max_marks: answeredMarks,
             total_questions: variant.length,
             questions: variant as any,
-            paper_data: { collegeName, examType, duration, theme: selectedTheme, variantLabel: label } as any,
+            paper_data: { collegeName, examType, duration, theme: selectedTheme, variantLabel: label, sections: useSectionConfig ? sections : undefined } as any,
             is_draft: false,
             difficulty,
             theme: selectedTheme,
@@ -363,101 +551,69 @@ export default function GeneratePaper() {
       const totalQs = allVariants.reduce((s, v) => s + v.length, 0);
       toast({
         title: "Paper Generated!",
-        description: `${numVariants} variant${numVariants > 1 ? "s" : ""} • ${totalQs} questions • ${totalMarks} marks`
+        description: `${numVariants} variant${numVariants > 1 ? "s" : ""} • ${totalQs} questions • ${answeredMarks} marks`
       });
     }, 1200);
-  }, [isValid, validationErrors, toast, totalMarks, variantCount, generateSingleVariant, currentSubject, department, examType, collegeName, duration, selectedTheme, difficulty]);
+  }, [isValid, validationErrors, toast, totalMarks, answeredMarks, variantCount, generateSingleVariant, currentSubject, department, examType, collegeName, duration, selectedTheme, difficulty, preGenerationCheck, useSectionConfig, sections, useUnitDistribution, unitDistributions, q2Count, q5Count, q10Count]);
 
-  // Smart Shuffle - regenerate with different questions
+  // Smart Shuffle
   const smartShuffle = useCallback(() => {
     if (!isValid) return;
-
     setIsGenerating(true);
     setProgress(0);
-
-    const interval = setInterval(() => {
-      setProgress(p => Math.min(p + 20, 90));
-    }, 80);
-
+    const interval = setInterval(() => { setProgress(p => Math.min(p + 20, 90)); }, 80);
     setTimeout(() => {
       clearInterval(interval);
       setProgress(100);
-
-      // Collect all previously used keys
       const prevUsedKeys = new Set<string>();
       usedQuestionSets.current.forEach(s => s.forEach(k => prevUsedKeys.add(k)));
-
       const numVariants = parseInt(variantCount) || 1;
       const allVariants: GeneratedQuestion[][] = [];
       const allUsedKeys = new Set(prevUsedKeys);
-
       for (let v = 0; v < numVariants; v++) {
         const { questions, usedKeys } = generateSingleVariant(allUsedKeys);
         allVariants.push(questions);
         usedKeys.forEach(k => allUsedKeys.add(k));
       }
-
       usedQuestionSets.current = allVariants.map(variant => {
         const s = new Set<string>();
-        variant.forEach(q => s.add(q.text.toLowerCase().trim()));
+        variant.forEach(q => { s.add(q.text.toLowerCase().trim()); if (q.orAlternative) s.add(q.orAlternative.text.toLowerCase().trim()); });
         return s;
       });
-
       setGeneratedVariants(allVariants);
       setActiveVariant(0);
       setIsGenerating(false);
       setVariantLabel("New Variant Generated ✨");
-
-      toast({ title: "🔄 Smart Shuffle Complete", description: "New unique questions generated. No repeats from previous set." });
-
+      toast({ title: "🔄 Smart Shuffle Complete", description: "New unique questions generated." });
       setTimeout(() => setVariantLabel(""), 3000);
     }, 800);
   }, [isValid, variantCount, generateSingleVariant, toast]);
 
-  // Auto-calculate quality score when paper changes
+  // Quality score
   useEffect(() => {
-    if (!generated || generatedQuestions.length === 0) {
-      setQualityScore(null);
-      return;
-    }
+    if (!generated || generatedQuestions.length === 0) { setQualityScore(null); return; }
     const selectedUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
+    const effectiveQ2 = useSectionConfig ? sections.filter(s => s.marks === 2).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count);
+    const effectiveQ5 = useSectionConfig ? sections.filter(s => s.marks === 5).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count);
+    const effectiveQ10 = useSectionConfig ? sections.filter(s => s.marks === 10).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count);
     const score = calculateQualityScore(
-      generatedQuestions.map(q => ({
-        text: q.text,
-        marks: q.marks,
-        unit: q.unit,
-        difficulty: q.difficulty,
-        type: q.type,
-        bloom: q.bloom,
-      })),
-      selectedUnits,
-      totalMarks,
-      useUnitDistribution
-        ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0)
-        : q2Count,
-      useUnitDistribution
-        ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0)
-        : q5Count,
-      useUnitDistribution
-        ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0)
-        : q10Count,
+      generatedQuestions.map(q => ({ text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty, type: q.type, bloom: q.bloom })),
+      selectedUnits, totalMarks, effectiveQ2, effectiveQ5, effectiveQ10,
     );
     setQualityScore(score);
-  }, [generated, generatedQuestions, unitDistributions, totalMarks, q2Count, q5Count, q10Count, useUnitDistribution]);
+  }, [generated, generatedQuestions, unitDistributions, totalMarks, q2Count, q5Count, q10Count, useUnitDistribution, useSectionConfig, sections]);
 
   // Improve paper quality
   const improvePaperQuality = useCallback(() => {
     if (!isValid || !generated) return;
     setIsImproving(true);
-    // Re-generate with same settings — the randomness gives a new attempt
     setTimeout(() => {
       const numVariants = parseInt(variantCount) || 1;
-      const allVariants: GeneratedQuestion[][] = [];
-      const allUsedKeys = new Set<string>();
-
-      // Try multiple times and pick the best scoring variant set
       let bestVariants: GeneratedQuestion[][] = [];
       let bestScore = -1;
+      const effectiveQ2 = useSectionConfig ? sections.filter(s => s.marks === 2).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count);
+      const effectiveQ5 = useSectionConfig ? sections.filter(s => s.marks === 5).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count);
+      const effectiveQ10 = useSectionConfig ? sections.filter(s => s.marks === 10).reduce((sum, s) => sum + s.totalQuestions, 0) : (useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count);
 
       for (let attempt = 0; attempt < 5; attempt++) {
         const tryVariants: GeneratedQuestion[][] = [];
@@ -467,29 +623,19 @@ export default function GeneratePaper() {
           tryVariants.push(questions);
           usedKeys.forEach(k => tryKeys.add(k));
         }
-
         const selectedUnits = unitDistributions.filter(u => u.selected).map(u => u.unitName);
         const tryScore = calculateQualityScore(
           tryVariants[0].map(q => ({ text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty, type: q.type, bloom: q.bloom })),
-          selectedUnits,
-          totalMarks,
-          useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q2, 0) : q2Count,
-          useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q5, 0) : q5Count,
-          useUnitDistribution ? unitDistributions.filter(u => u.selected).reduce((s, u) => s + u.q10, 0) : q10Count,
+          selectedUnits, totalMarks, effectiveQ2, effectiveQ5, effectiveQ10,
         );
-
-        if (tryScore.total > bestScore) {
-          bestScore = tryScore.total;
-          bestVariants = tryVariants;
-        }
+        if (tryScore.total > bestScore) { bestScore = tryScore.total; bestVariants = tryVariants; }
       }
-
       setGeneratedVariants(bestVariants);
       setActiveVariant(0);
       setIsImproving(false);
       toast({ title: "✨ Paper Quality Improved", description: `Best score: ${bestScore}/100 from 5 attempts.` });
     }, 600);
-  }, [isValid, generated, variantCount, generateSingleVariant, unitDistributions, totalMarks, q2Count, q5Count, q10Count, useUnitDistribution, toast]);
+  }, [isValid, generated, variantCount, generateSingleVariant, unitDistributions, totalMarks, q2Count, q5Count, q10Count, useUnitDistribution, useSectionConfig, sections, toast]);
 
   // Save as draft
   const saveAsDraft = useCallback(async () => {
@@ -501,10 +647,10 @@ export default function GeneratePaper() {
         title: `${currentSubject.name} - ${examType || "Paper"}`,
         subject: currentSubject.name,
         department: department,
-        max_marks: totalMarks,
+        max_marks: answeredMarks,
         total_questions: totalQuestions,
         questions: generatedQuestions as any,
-        paper_data: { collegeName, examType, duration, theme: selectedTheme } as any,
+        paper_data: { collegeName, examType, duration, theme: selectedTheme, sections: useSectionConfig ? sections : undefined } as any,
         is_draft: true,
         difficulty,
         theme: selectedTheme,
@@ -514,13 +660,12 @@ export default function GeneratePaper() {
         duration: duration || null,
       });
     }
-    toast({ title: "Draft Saved", description: "Paper saved as draft. You can continue editing." });
-  }, [toast, currentSubject, department, totalMarks, totalQuestions, generatedQuestions, collegeName, examType, duration, selectedTheme, difficulty]);
+    toast({ title: "Draft Saved", description: "Paper saved as draft." });
+  }, [toast, currentSubject, department, answeredMarks, totalQuestions, generatedQuestions, collegeName, examType, duration, selectedTheme, difficulty, useSectionConfig, sections]);
 
   // Validation report
   const runValidation = useCallback(() => {
     if (!generated || generatedQuestions.length === 0) return;
-
     const unitCoverage: Record<string, number> = {};
     const diffCount: Record<string, number> = { Easy: 0, Medium: 0, Hard: 0 };
     const seen = new Set<string>();
@@ -533,24 +678,29 @@ export default function GeneratePaper() {
       const key = q.text.toLowerCase().trim();
       if (seen.has(key)) duplicates++;
       else seen.add(key);
+      // Check OR alternatives
+      if (q.orAlternative) {
+        unitCoverage[q.orAlternative.unit] = (unitCoverage[q.orAlternative.unit] || 0) + 1;
+        const orKey = q.orAlternative.text.toLowerCase().trim();
+        if (seen.has(orKey)) duplicates++;
+        else seen.add(orKey);
+        // Check OR pair is from same unit
+        if (q.unit !== q.orAlternative.unit) {
+          issues.push(`Q${q.questionNumber}: OR pair from different units`);
+        }
+      }
     });
 
     if (duplicates > 0) issues.push(`${duplicates} duplicate question(s) detected`);
-
     const coveredUnits = Object.keys(unitCoverage).length;
-    const totalUnits = currentSubject?.units.length || 5;
-    if (coveredUnits < totalUnits) {
-      issues.push(`Only ${coveredUnits}/${totalUnits} units covered`);
-    }
+    const totalUnitsCount = currentSubject?.units.length || 5;
+    if (coveredUnits < totalUnitsCount) issues.push(`Only ${coveredUnits}/${totalUnitsCount} units covered`);
 
     const total = generatedQuestions.length;
     const easyPct = Math.round((diffCount.Easy / total) * 100);
     const hardPct = Math.round((diffCount.Hard / total) * 100);
-    if (difficulty === "mixed" && (easyPct > 60 || hardPct > 60)) {
-      issues.push("Difficulty distribution is skewed");
-    }
+    if (difficulty === "mixed" && (easyPct > 60 || hardPct > 60)) issues.push("Difficulty distribution is skewed");
 
-    // Cross-variant duplicate check
     if (generatedVariants.length > 1) {
       const allTexts: string[] = [];
       let crossDups = 0;
@@ -564,7 +714,7 @@ export default function GeneratePaper() {
       if (crossDups > 0) issues.push(`${crossDups} cross-variant duplicate(s) found`);
     }
 
-    const report: ValidationReport = {
+    setValidationReport({
       subjectRelevance: 95 + Math.floor(Math.random() * 5),
       unitCoverage,
       difficultyBalance: {
@@ -575,24 +725,65 @@ export default function GeneratePaper() {
       duplicates,
       issues,
       passed: issues.length === 0,
-    };
-
-    setValidationReport(report);
+    });
     setShowValidation(true);
   }, [generated, generatedQuestions, currentSubject, difficulty, generatedVariants]);
 
   // Group generated questions by section
-  const sectionA = generatedQuestions.filter(q => q.marks === 2);
-  const sectionB = generatedQuestions.filter(q => q.marks === 5);
-  const sectionC = generatedQuestions.filter(q => q.marks === 10);
+  const questionsBySection = useMemo(() => {
+    if (!useSectionConfig) {
+      // Legacy mode - group by marks
+      const sA = generatedQuestions.filter(q => q.marks === 2);
+      const sB = generatedQuestions.filter(q => q.marks === 5);
+      const sC = generatedQuestions.filter(q => q.marks === 10);
+      return [
+        { config: { id: "a", name: "PART – A", marks: 2, totalQuestions: sA.length, questionsToAnswer: sA.length, enableOr: false }, questions: sA },
+        { config: { id: "b", name: "PART – B", marks: 5, totalQuestions: sB.length, questionsToAnswer: sB.length, enableOr: false }, questions: sB },
+        { config: { id: "c", name: "PART – C", marks: 10, totalQuestions: sC.length, questionsToAnswer: sC.length, enableOr: false }, questions: sC },
+      ].filter(s => s.questions.length > 0);
+    }
 
-  const variantLabels = ["A", "B", "C", "D", "E"];
+    // Section-based mode
+    let offset = 0;
+    return sections.map(section => {
+      const sectionQs = generatedQuestions.slice(offset, offset + section.totalQuestions);
+      offset += section.totalQuestions;
+      return { config: section, questions: sectionQs };
+    }).filter(s => s.questions.length > 0);
+  }, [useSectionConfig, sections, generatedQuestions]);
+
+  const variantLabelsArr = ["A", "B", "C", "D", "E"];
+
+  // Build export questions (flatten OR into separate entries with markers)
+  const buildExportQuestions = useCallback(() => {
+    return generatedQuestions.map(q => ({
+      questionNumber: q.questionNumber,
+      text: q.text,
+      marks: q.marks,
+      unit: q.unit,
+      difficulty: q.difficulty,
+      orAlternativeText: q.orAlternative?.text,
+    }));
+  }, [generatedQuestions]);
+
+  const buildExportMeta = useCallback(() => ({
+    subjectName: currentSubject?.name || "Paper",
+    subjectCode: currentSubject?.code,
+    maxMarks: answeredMarks,
+    collegeName,
+    examType,
+    duration,
+    setLabel: `Set ${variantLabelsArr[activeVariant] || "A"}`,
+    watermark: true,
+    paperId: `CQ-${Date.now().toString(36).toUpperCase()}`,
+    sections: useSectionConfig ? sections : undefined,
+  }), [currentSubject, answeredMarks, collegeName, examType, duration, activeVariant, useSectionConfig, sections]);
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-display text-foreground">Generate Paper</h1>
-        <p className="text-muted-foreground mt-1">Configure and generate B.Tech question papers in seconds.</p>
+        <p className="text-muted-foreground mt-1">Configure and generate university-style question papers with OR options.</p>
       </motion.div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -608,7 +799,6 @@ export default function GeneratePaper() {
             <h3 className="font-display text-lg text-foreground flex items-center gap-2">
               <Building2 className="w-5 h-5 text-accent" /> Department & Subject
             </h3>
-
             <div className="space-y-2">
               <Label>Department <span className="text-destructive">*</span></Label>
               <Select value={department} onValueChange={(v) => { setDepartment(v); handleSubjectChange(""); }}>
@@ -620,7 +810,6 @@ export default function GeneratePaper() {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Year</Label>
@@ -648,7 +837,6 @@ export default function GeneratePaper() {
                 </Select>
               </div>
             </div>
-
             <div className="space-y-2">
               <Label>Subject <span className="text-destructive">*</span></Label>
               <Select value={selectedSubject} onValueChange={handleSubjectChange}>
@@ -662,6 +850,106 @@ export default function GeneratePaper() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Section Configuration */}
+          <div className="elevated-card rounded-xl p-5 space-y-4">
+            <button
+              onClick={() => setSectionConfigOpen(!sectionConfigOpen)}
+              className="w-full flex items-center justify-between"
+            >
+              <h3 className="font-display text-lg text-foreground flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-accent" /> Paper Sections
+              </h3>
+              {sectionConfigOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+
+            <AnimatePresence>
+              {sectionConfigOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-3 overflow-hidden"
+                >
+                  <div className="flex items-center gap-2">
+                    <Switch checked={useSectionConfig} onCheckedChange={setUseSectionConfig} />
+                    <Label className="text-xs text-muted-foreground">Section-based paper structure</Label>
+                  </div>
+
+                  {useSectionConfig && (
+                    <div className="space-y-3">
+                      {sections.map((section, idx) => (
+                        <div key={section.id} className="rounded-lg border border-accent/20 bg-accent/5 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Input
+                              value={section.name}
+                              onChange={e => updateSection(idx, "name", e.target.value)}
+                              className="h-7 text-xs font-semibold w-32"
+                            />
+                            {sections.length > 1 && (
+                              <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive" onClick={() => removeSection(idx)}>
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">Marks/Q</Label>
+                              <Select value={String(section.marks)} onValueChange={v => updateSection(idx, "marks", Number(v))}>
+                                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1 Mark</SelectItem>
+                                  <SelectItem value="2">2 Marks</SelectItem>
+                                  <SelectItem value="3">3 Marks</SelectItem>
+                                  <SelectItem value="5">5 Marks</SelectItem>
+                                  <SelectItem value="10">10 Marks</SelectItem>
+                                  <SelectItem value="15">15 Marks</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">Total Questions</Label>
+                              <Input
+                                type="number" min={0}
+                                value={section.totalQuestions}
+                                onChange={e => updateSection(idx, "totalQuestions", Math.max(0, parseInt(e.target.value) || 0))}
+                                className="h-7 text-xs text-center"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">Answer Any</Label>
+                              <Input
+                                type="number" min={0} max={section.totalQuestions}
+                                value={section.questionsToAnswer}
+                                onChange={e => updateSection(idx, "questionsToAnswer", Math.min(section.totalQuestions, Math.max(0, parseInt(e.target.value) || 0)))}
+                                className="h-7 text-xs text-center"
+                              />
+                            </div>
+                            <div className="flex items-end gap-1.5 pb-0.5">
+                              <Switch
+                                checked={section.enableOr}
+                                onCheckedChange={v => updateSection(idx, "enableOr", v)}
+                                className="scale-75"
+                              />
+                              <Label className="text-[10px] text-muted-foreground">OR options</Label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <Button variant="outline" size="sm" className="w-full text-xs" onClick={addSection}>
+                        + Add Section
+                      </Button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Unit Selection */}
@@ -685,15 +973,17 @@ export default function GeneratePaper() {
                     exit={{ height: 0, opacity: 0 }}
                     className="space-y-3 overflow-hidden"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={useUnitDistribution} onCheckedChange={setUseUnitDistribution} />
-                        <Label className="text-xs text-muted-foreground">Per-unit question counts</Label>
+                    {!useSectionConfig && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={useUnitDistribution} onCheckedChange={setUseUnitDistribution} />
+                          <Label className="text-xs text-muted-foreground">Per-unit question counts</Label>
+                        </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => selectAllUnits(true)}>All</Button>
-                        <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => selectAllUnits(false)}>None</Button>
-                      </div>
+                    )}
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => selectAllUnits(true)}>All</Button>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => selectAllUnits(false)}>None</Button>
                     </div>
 
                     <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
@@ -716,37 +1006,25 @@ export default function GeneratePaper() {
                                 Unit {idx + 1}: {ud.unitName}
                               </p>
 
-                              {useUnitDistribution && ud.selected && (
+                              {!useSectionConfig && useUnitDistribution && ud.selected && (
                                 <div className="grid grid-cols-3 gap-2 mt-2">
                                   <div className="space-y-0.5">
                                     <Label className="text-[10px] text-muted-foreground">2M</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={ud.q2}
+                                    <Input type="number" min={0} value={ud.q2}
                                       onChange={(e) => updateUnitDist(idx, "q2", Math.max(0, parseInt(e.target.value) || 0))}
-                                      className="h-7 text-xs text-center"
-                                    />
+                                      className="h-7 text-xs text-center" />
                                   </div>
                                   <div className="space-y-0.5">
                                     <Label className="text-[10px] text-muted-foreground">5M</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={ud.q5}
+                                    <Input type="number" min={0} value={ud.q5}
                                       onChange={(e) => updateUnitDist(idx, "q5", Math.max(0, parseInt(e.target.value) || 0))}
-                                      className="h-7 text-xs text-center"
-                                    />
+                                      className="h-7 text-xs text-center" />
                                   </div>
                                   <div className="space-y-0.5">
                                     <Label className="text-[10px] text-muted-foreground">10M</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={ud.q10}
+                                    <Input type="number" min={0} value={ud.q10}
                                       onChange={(e) => updateUnitDist(idx, "q10", Math.max(0, parseInt(e.target.value) || 0))}
-                                      className="h-7 text-xs text-center"
-                                    />
+                                      className="h-7 text-xs text-center" />
                                   </div>
                                 </div>
                               )}
@@ -761,8 +1039,8 @@ export default function GeneratePaper() {
             </div>
           )}
 
-          {/* Question Controls (global) */}
-          {!useUnitDistribution && (
+          {/* Legacy Question Controls (when section config is off) */}
+          {!useSectionConfig && !useUnitDistribution && (
             <div className="elevated-card rounded-xl p-5 space-y-4">
               <h3 className="font-display text-lg text-foreground flex items-center gap-2">
                 <FileText className="w-5 h-5 text-accent" /> Question Controls
@@ -787,9 +1065,15 @@ export default function GeneratePaper() {
           {/* Marks & Difficulty */}
           <div className="elevated-card rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Total Marks</span>
+              <span className="text-sm font-medium text-foreground">Total Marks (Paper)</span>
               <Badge variant={totalMarks > 0 ? "default" : "secondary"} className="text-sm font-mono">{totalMarks}</Badge>
             </div>
+            {useSectionConfig && answeredMarks !== totalMarks && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Max Marks (To Answer)</span>
+                <Badge variant="outline" className="text-sm font-mono text-accent">{answeredMarks}</Badge>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Total Questions</span>
               <span className="text-xs text-muted-foreground font-mono">{totalQuestions}</span>
@@ -946,7 +1230,7 @@ export default function GeneratePaper() {
                 </div>
                 <h3 className="font-display text-xl text-foreground mb-2">Ready to Generate</h3>
                 <p className="text-sm text-muted-foreground max-w-sm">
-                  Select department & subject, configure units, set question counts, then generate.
+                  Configure sections with OR options, set question counts, then generate your university-style paper.
                 </p>
                 {currentSubject && (
                   <div className="mt-6 w-full max-w-md">
@@ -986,7 +1270,7 @@ export default function GeneratePaper() {
                     <TabsList className="w-full">
                       {generatedVariants.map((_, i) => (
                         <TabsTrigger key={i} value={String(i)} className="flex-1">
-                          Set {variantLabels[i] || i + 1}
+                          Set {variantLabelsArr[i] || i + 1}
                         </TabsTrigger>
                       ))}
                     </TabsList>
@@ -1009,12 +1293,12 @@ export default function GeneratePaper() {
                     {collegeName && <p className="text-sm font-bold text-foreground uppercase tracking-wider">{collegeName}</p>}
                     {examType && <p className="text-xs text-muted-foreground">{examType} Examination</p>}
                     <h3 className="font-display text-xl text-foreground">
-                      {currentSubject?.name || "Question Paper"} — Set {variantLabels[activeVariant] || "A"}
+                      {currentSubject?.name || "Question Paper"} — Set {variantLabelsArr[activeVariant] || "A"}
                     </h3>
                     <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
                       {currentSubject && <span>{currentSubject.code}</span>}
                       {duration && <span>Duration: {duration}</span>}
-                      <span>Max Marks: {totalMarks}</span>
+                      <span>Max Marks: {answeredMarks}</span>
                     </div>
                     {isDraft && (
                       <Badge variant="secondary" className="text-[10px] mt-2">📝 DRAFT</Badge>
@@ -1031,7 +1315,7 @@ export default function GeneratePaper() {
                         <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
                       </Button>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button variant="outline" size="sm" onClick={smartShuffle} disabled={isGenerating}>
                         <RefreshCw className="w-3.5 h-3.5 mr-1" /> Smart Shuffle
                       </Button>
@@ -1046,30 +1330,27 @@ export default function GeneratePaper() {
                         <Shuffle className="w-3.5 h-3.5 mr-1" /> Reorder
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => {
-                        const qs = generatedQuestions.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty }));
-                        const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, setLabel: `Set ${variantLabels[activeVariant] || "A"}`, watermark: true, paperId: `CQ-${Date.now().toString(36).toUpperCase()}` };
-                        exportAsPdf(qs, meta);
+                        exportAsPdf(buildExportQuestions(), buildExportMeta());
                       }}>
                         <Download className="w-3.5 h-3.5 mr-1" /> PDF
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => {
-                        const qs = generatedQuestions.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty }));
-                        const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, setLabel: `Set ${variantLabels[activeVariant] || "A"}`, watermark: true };
-                        exportAsDocx(qs, meta);
+                        exportAsDocx(buildExportQuestions(), buildExportMeta());
                       }}>
                         <Download className="w-3.5 h-3.5 mr-1" /> DOCX
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => {
-                        const qs = generatedQuestions.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty }));
-                        const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, setLabel: `Set ${variantLabels[activeVariant] || "A"}`, watermark: true };
-                        exportAsTxt(qs, meta);
+                        exportAsTxt(buildExportQuestions(), buildExportMeta());
                       }}>
                         <Download className="w-3.5 h-3.5 mr-1" /> TXT
                       </Button>
                       {generatedVariants.length > 1 && (
                         <Button variant="outline" size="sm" onClick={() => {
-                          const allVars = generatedVariants.map(v => v.map(q => ({ questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty })));
-                          const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: totalMarks, collegeName, examType, duration, watermark: true };
+                          const allVars = generatedVariants.map(v => v.map(q => ({
+                            questionNumber: q.questionNumber, text: q.text, marks: q.marks, unit: q.unit, difficulty: q.difficulty,
+                            orAlternativeText: q.orAlternative?.text,
+                          })));
+                          const meta = { subjectName: currentSubject?.name || "Paper", subjectCode: currentSubject?.code, maxMarks: answeredMarks, collegeName, examType, duration, watermark: true, sections: useSectionConfig ? sections : undefined };
                           exportAsZip(allVars, meta);
                         }}>
                           <Download className="w-3.5 h-3.5 mr-1" /> ZIP
@@ -1080,28 +1361,35 @@ export default function GeneratePaper() {
 
                   {/* Sections */}
                   <div className="p-5 space-y-6">
-                    {sectionA.length > 0 && (
-                      <SectionBlock title="Section A" markLabel="2 Marks Each" questions={sectionA} startNum={1} totalMarks={sectionA.length * 2} theme={selectedTheme} />
-                    )}
-                    {sectionB.length > 0 && (
-                      <>
-                        <Separator />
-                        <SectionBlock title="Section B" markLabel="5 Marks Each" questions={sectionB} startNum={sectionA.length + 1} totalMarks={sectionB.length * 5} theme={selectedTheme} />
-                      </>
-                    )}
-                    {sectionC.length > 0 && (
-                      <>
-                        <Separator />
-                        <SectionBlock title="Section C" markLabel="10 Marks Each" questions={sectionC} startNum={sectionA.length + sectionB.length + 1} totalMarks={sectionC.length * 10} theme={selectedTheme} />
-                      </>
-                    )}
+                    {questionsBySection.map((sectionData, sIdx) => {
+                      const { config, questions: sectionQs } = sectionData;
+                      const startNum = questionsBySection.slice(0, sIdx).reduce((sum, s) => sum + s.questions.length, 0) + 1;
+                      return (
+                        <div key={config.id}>
+                          {sIdx > 0 && <Separator className="mb-6" />}
+                          <SectionBlock
+                            title={config.name}
+                            markLabel={`${config.marks} Marks Each`}
+                            instruction={config.questionsToAnswer < config.totalQuestions
+                              ? `Answer any ${config.questionsToAnswer} out of ${config.totalQuestions} questions`
+                              : "Answer all questions"
+                            }
+                            questions={sectionQs}
+                            startNum={startNum}
+                            totalMarks={config.questionsToAnswer * config.marks}
+                            theme={selectedTheme}
+                            showOr={config.enableOr}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Footer */}
                   <div className="p-5 border-t border-border flex justify-between text-sm text-muted-foreground">
-                    <span>Total: {totalMarks} marks • {generatedQuestions.length} questions</span>
+                    <span>Total: {answeredMarks} marks • {generatedQuestions.length} questions</span>
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Generated in 1.2s
+                      <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Generated
                     </span>
                   </div>
                 </div>
@@ -1198,54 +1486,87 @@ export default function GeneratePaper() {
   );
 }
 
-function SectionBlock({ title, markLabel, questions, startNum, totalMarks, theme }: {
+function SectionBlock({ title, markLabel, instruction, questions, startNum, totalMarks, theme, showOr }: {
   title: string;
   markLabel: string;
+  instruction: string;
   questions: GeneratedQuestion[];
   startNum: number;
   totalMarks: number;
   theme: string;
+  showOr: boolean;
 }) {
   return (
     <div className="space-y-2">
       <div className={cn(
-        "flex items-center gap-2 mb-3",
+        "flex flex-col gap-1 mb-3",
         theme === "jntu" && "border-b border-border pb-2",
         theme === "iit" && "border-b-2 border-foreground pb-2",
       )}>
-        <h4 className="font-display text-base text-foreground">{title}</h4>
-        <Badge variant="secondary" className="text-[10px]">{markLabel}</Badge>
-        <span className="text-xs text-muted-foreground ml-auto">{totalMarks} marks</span>
+        <div className="flex items-center gap-2">
+          <h4 className="font-display text-base text-foreground">{title}</h4>
+          <Badge variant="secondary" className="text-[10px]">{markLabel}</Badge>
+          <span className="text-xs text-muted-foreground ml-auto">{totalMarks} marks</span>
+        </div>
+        <p className="text-xs text-muted-foreground italic">{instruction}</p>
       </div>
       {questions.map((q, i) => (
-        <QuestionRow key={`${title}-${i}`} q={q} num={startNum + i} />
+        <QuestionRow key={`${title}-${i}`} q={q} num={startNum + i} showOr={showOr} />
       ))}
     </div>
   );
 }
 
-function QuestionRow({ q, num }: { q: GeneratedQuestion; num: number }) {
+function QuestionRow({ q, num, showOr }: { q: GeneratedQuestion; num: number; showOr: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: num * 0.02 }}
-      className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+      className="p-3 rounded-lg hover:bg-muted/50 transition-colors"
     >
-      <span className="text-sm font-mono text-muted-foreground w-6 text-right flex-shrink-0">{num}.</span>
-      <div className="flex-1">
-        <p className="text-sm text-foreground">{q.text}</p>
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          <Badge variant="outline" className="text-[10px]">{q.unit}</Badge>
-          <Badge variant="outline" className={cn(
-            "text-[10px]",
-            q.difficulty === "Easy" && "border-success/50 text-success",
-            q.difficulty === "Hard" && "border-destructive/50 text-destructive",
-          )}>{q.difficulty}</Badge>
-          <Badge variant="outline" className="text-[10px] text-muted-foreground">{q.bloom}</Badge>
+      {/* Main question (A) */}
+      <div className="flex items-start gap-3">
+        <span className="text-sm font-mono text-muted-foreground w-6 text-right flex-shrink-0">{num}.</span>
+        <div className="flex-1">
+          {showOr && q.orAlternative && (
+            <span className="text-xs font-bold text-accent mr-1">A)</span>
+          )}
+          <p className="text-sm text-foreground inline">{q.text}</p>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            <Badge variant="outline" className="text-[10px]">{q.unit}</Badge>
+            <Badge variant="outline" className={cn(
+              "text-[10px]",
+              q.difficulty === "Easy" && "border-success/50 text-success",
+              q.difficulty === "Hard" && "border-destructive/50 text-destructive",
+            )}>{q.difficulty}</Badge>
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">{q.bloom}</Badge>
+          </div>
         </div>
+        <span className="text-xs font-mono text-muted-foreground flex-shrink-0">[{q.marks}]</span>
       </div>
-      <span className="text-xs font-mono text-muted-foreground flex-shrink-0">[{q.marks}]</span>
+
+      {/* OR alternative (B) */}
+      {showOr && q.orAlternative && (
+        <>
+          <div className="flex items-center gap-2 my-2 pl-9">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs font-bold text-accent px-2">OR</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-sm font-mono text-muted-foreground w-6 text-right flex-shrink-0">{num}.</span>
+            <div className="flex-1">
+              <span className="text-xs font-bold text-accent mr-1">B)</span>
+              <p className="text-sm text-foreground inline">{q.orAlternative.text}</p>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                <Badge variant="outline" className="text-[10px]">{q.orAlternative.unit}</Badge>
+              </div>
+            </div>
+            <span className="text-xs font-mono text-muted-foreground flex-shrink-0">[{q.marks}]</span>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }
