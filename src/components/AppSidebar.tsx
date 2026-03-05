@@ -12,6 +12,7 @@ import {
   LogOut,
   Zap,
   Shield,
+  Brain,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const navItems = [
   { to: "/subjects", icon: GraduationCap, label: "Subjects" },
   { to: "/question-bank", icon: Database, label: "Question Bank" },
   { to: "/generate", icon: Zap, label: "Generate Paper" },
+  { to: "/generate-from-notes", icon: Brain, label: "Generate from Notes" },
   { to: "/upload", icon: Upload, label: "Upload Paper" },
   { to: "/saved", icon: FolderOpen, label: "Saved Papers" },
   { to: "/pyq", icon: BookOpen, label: "PYQ Papers" },
