@@ -16,6 +16,7 @@ import PreviousYearPapers from "./pages/PreviousYearPapers";
 import SettingsPage from "./pages/Settings";
 import Login from "./pages/Login";
 import AdminPanel from "./pages/AdminPanel";
+import GenerateFromNotes from "./pages/GenerateFromNotes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/subjects" element={<SubjectLibrary />} />
               <Route path="/question-bank" element={<QuestionBank />} />
               <Route path="/generate" element={<GeneratePaper />} />
+              <Route path="/generate-from-notes" element={<GenerateFromNotes />} />
               <Route path="/upload" element={<UploadPaper />} />
               <Route path="/saved" element={<SavedPapers />} />
               <Route path="/pyq" element={<PreviousYearPapers />} />

@@ -693,8 +693,8 @@ export default function GenerateFromNotes() {
                                         <Badge variant="outline" className="text-[10px]">{q.unit}</Badge>
                                         <Badge variant="outline" className={cn(
                                           "text-[10px]",
-                                          q.difficulty === "Easy" && "border-green-500/50 text-green-600",
-                                          q.difficulty === "Hard" && "border-red-500/50 text-red-600",
+                                          q.difficulty === "Easy" && "border-success/50 text-success",
+                                          q.difficulty === "Hard" && "border-destructive/50 text-destructive",
                                         )}>{q.difficulty}</Badge>
                                         <Badge variant="secondary" className="text-[10px]">{q.type}</Badge>
                                         <Badge variant="outline" className="text-[10px] text-muted-foreground">{q.bloom}</Badge>
