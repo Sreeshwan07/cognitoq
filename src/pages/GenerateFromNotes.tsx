@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import {
   Upload, FileText, X, CheckCircle2, AlertCircle, Edit3, Save, Trash2,
-  Eye, Brain, Sparkles, BookOpen, Download, RefreshCw, Settings2, ShieldCheck
+  Eye, Brain, Sparkles, BookOpen, Download, RefreshCw, Settings2, ShieldCheck,
+  Lock, Unlock, Search, XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,9 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -43,12 +47,19 @@ interface AIQuestion {
   orAlternativeBloom?: string;
 }
 
+interface KeywordDetection {
+  detectedSubject: string;
+  confidence: number;
+  topScores: { name: string; score: number }[];
+}
+
 interface AIResult {
   detectedSubject: string;
   detectedUnits: string[];
   questions: AIQuestion[];
   contentSummary: string;
   warnings?: string[];
+  keywordDetection?: KeywordDetection;
 }
 
 const defaultSections: SectionConfig[] = [
@@ -72,6 +83,18 @@ export default function GenerateFromNotes() {
   const [strictMode, setStrictMode] = useState(true);
   const [subjectHint, setSubjectHint] = useState("");
 
+  // Subject lock state
+  const [confirmedSubject, setConfirmedSubject] = useState("");
+  const [subjectLocked, setSubjectLocked] = useState(false);
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false);
+  const [pendingDetection, setPendingDetection] = useState<KeywordDetection | null>(null);
+  const [pendingResult, setPendingResult] = useState<AIResult | null>(null);
+  const [manualSubjectInput, setManualSubjectInput] = useState("");
+
+  // Detected topics editing
+  const [editableUnits, setEditableUnits] = useState<string[]>([]);
+  const [showTopicsReview, setShowTopicsReview] = useState(false);
+
   // Header customization
   const [collegeName, setCollegeName] = useState("");
   const [examType, setExamType] = useState("");
@@ -85,6 +108,9 @@ export default function GenerateFromNotes() {
   const [editMode, setEditMode] = useState(false);
   const [editQuestions, setEditQuestions] = useState<AIQuestion[]>([]);
 
+  // Content analysis preview
+  const [contentStats, setContentStats] = useState<{ words: number; lines: number; chars: number } | null>(null);
+
   const totalMarks = useMemo(() => sections.reduce((s, sec) => s + sec.totalQuestions * sec.marks, 0), [sections]);
   const answeredMarks = useMemo(() => sections.reduce((s, sec) => s + sec.questionsToAnswer * sec.marks, 0), [sections]);
 
@@ -95,7 +121,20 @@ export default function GenerateFromNotes() {
     return null;
   };
 
-  const handleFile = useCallback((f: File) => {
+  const preprocessClientSide = (raw: string): string => {
+    let text = raw;
+    // Remove non-printable
+    text = text.replace(/[^\x20-\x7E\n\r\t\u00A0-\u024F]/g, " ");
+    // Remove standalone page numbers
+    text = text.replace(/^\s*\d{1,4}\s*$/gm, "");
+    // Remove URLs
+    text = text.replace(/https?:\/\/\S+/g, "");
+    // Collapse whitespace
+    text = text.replace(/\n{3,}/g, "\n\n").replace(/[ \t]{3,}/g, "  ");
+    return text.trim();
+  };
+
+  const handleFile = useCallback(async (f: File) => {
     const error = validateFile(f);
     if (error) {
       toast({ title: "Invalid File", description: error, variant: "destructive" });
@@ -105,6 +144,26 @@ export default function GenerateFromNotes() {
     setResult(null);
     setEditMode(false);
     setExtractedText("");
+    setSubjectLocked(false);
+    setConfirmedSubject("");
+    setContentStats(null);
+
+    // Pre-extract text for preview stats
+    if (f.type === "text/plain" || f.name.endsWith(".txt")) {
+      const raw = await f.text();
+      const cleaned = preprocessClientSide(raw);
+      setExtractedText(cleaned);
+      const words = cleaned.split(/\s+/).filter(Boolean).length;
+      const lines = cleaned.split("\n").filter(l => l.trim()).length;
+      setContentStats({ words, lines, chars: cleaned.length });
+
+      if (cleaned.length < 100) {
+        toast({ title: "⚠ Low Content", description: "Not enough academic content detected in this file.", variant: "destructive" });
+      }
+    } else {
+      // For PDF/DOCX show info
+      setContentStats(null);
+    }
   }, [toast]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -118,6 +177,9 @@ export default function GenerateFromNotes() {
     setResult(null);
     setEditMode(false);
     setExtractedText("");
+    setSubjectLocked(false);
+    setConfirmedSubject("");
+    setContentStats(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -144,6 +206,45 @@ export default function GenerateFromNotes() {
     setSections(prev => prev.filter((_, i) => i !== index));
   };
 
+  const confirmSubject = (subject: string) => {
+    setConfirmedSubject(subject);
+    setSubjectLocked(true);
+    setShowSubjectDialog(false);
+    toast({ title: "🔒 Subject Locked", description: `"${subject}" is locked. AI will generate questions only for this subject.` });
+
+    // If we had a pending result, apply it
+    if (pendingResult) {
+      pendingResult.detectedSubject = subject;
+      finalizeResult(pendingResult);
+      setPendingResult(null);
+    }
+  };
+
+  const unlockSubject = () => {
+    setSubjectLocked(false);
+    setConfirmedSubject("");
+    toast({ title: "🔓 Subject Unlocked", description: "Subject will be auto-detected on next generation." });
+  };
+
+  const removeUnit = (unit: string) => {
+    setEditableUnits(prev => prev.filter(u => u !== unit));
+  };
+
+  const finalizeResult = (aiResult: AIResult) => {
+    setResult(aiResult);
+    setEditQuestions(aiResult.questions);
+    setEditableUnits(aiResult.detectedUnits);
+
+    if (aiResult.warnings && aiResult.warnings.length > 0) {
+      toast({ title: "⚠ Generation Warnings", description: aiResult.warnings[0] });
+    }
+
+    toast({
+      title: "✨ Questions Generated!",
+      description: `${aiResult.questions.length} questions from "${aiResult.detectedSubject}" across ${aiResult.detectedUnits.length} units.`,
+    });
+  };
+
   const generateFromNotes = useCallback(async () => {
     if (!file) return;
     setProcessing(true);
@@ -153,38 +254,38 @@ export default function GenerateFromNotes() {
 
     try {
       // Step 1: Extract text
-      let text = "";
+      let text = extractedText;
       setProgress(10);
-      
-      if (file.type === "text/plain" || file.name.endsWith(".txt")) {
-        text = await file.text();
-      } else {
-        // For PDF/DOCX, read as base64 and let AI handle it
-        // For now, try reading as text (works for some files)
-        try {
-          text = await file.text();
-          // Clean up binary garbage
-          text = text.replace(/[^\x20-\x7E\n\r\t]/g, " ").replace(/\s{3,}/g, " ").trim();
-        } catch {
-          text = "";
+
+      if (!text) {
+        if (file.type === "text/plain" || file.name.endsWith(".txt")) {
+          const raw = await file.text();
+          text = preprocessClientSide(raw);
+        } else {
+          try {
+            const raw = await file.text();
+            text = preprocessClientSide(raw);
+          } catch {
+            text = "";
+          }
+
+          if (text.length < 100) {
+            toast({
+              title: "Text Extraction Limited",
+              description: "For best results with PDF/DOCX, consider converting to TXT format first.",
+              variant: "destructive",
+            });
+          }
         }
-        
-        if (text.length < 100) {
-          toast({
-            title: "Text Extraction Limited",
-            description: "For best results with PDF/DOCX, consider converting to TXT format first. Proceeding with available content.",
-            variant: "destructive",
-          });
-        }
+        setExtractedText(text);
       }
 
-      if (text.length < 50) {
-        toast({ title: "Insufficient Content", description: "The file doesn't contain enough readable text.", variant: "destructive" });
+      if (text.length < 100) {
+        toast({ title: "Insufficient Content", description: "Not enough academic content detected. Please upload a file with more substantive notes.", variant: "destructive" });
         setProcessing(false);
         return;
       }
 
-      setExtractedText(text);
       setProgress(30);
       setProgressLabel("Analyzing content with AI...");
 
@@ -196,38 +297,33 @@ export default function GenerateFromNotes() {
           difficulty,
           strictMode,
           subjectHint: subjectHint || undefined,
+          confirmedSubject: subjectLocked ? confirmedSubject : undefined,
         },
       });
 
-      if (error) {
-        throw new Error(error.message || "AI processing failed");
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message || "AI processing failed");
+      if (data?.error) throw new Error(data.error);
 
       setProgress(90);
-      setProgressLabel("Finalizing questions...");
+      setProgressLabel("Validating output...");
 
       const aiResult = data as AIResult;
-      setResult(aiResult);
-      setEditQuestions(aiResult.questions);
-      setProgress(100);
-      setProgressLabel("Complete!");
 
-      // Show warnings if any
-      if (aiResult.warnings && aiResult.warnings.length > 0) {
-        toast({
-          title: "⚠ Generation Warnings",
-          description: aiResult.warnings[0],
-        });
+      // If subject not locked, show confirmation dialog
+      if (!subjectLocked) {
+        setPendingDetection(aiResult.keywordDetection || null);
+        setPendingResult(aiResult);
+        setManualSubjectInput(aiResult.detectedSubject);
+        setShowSubjectDialog(true);
+        setProgress(95);
+        setProgressLabel("Awaiting subject confirmation...");
+        setProcessing(false);
+        return;
       }
 
-      toast({
-        title: "✨ Questions Generated!",
-        description: `${aiResult.questions.length} questions from "${aiResult.detectedSubject}" across ${aiResult.detectedUnits.length} units.`,
-      });
+      setProgress(100);
+      setProgressLabel("Complete!");
+      finalizeResult(aiResult);
 
       // Save to database
       const { data: { user } } = await supabase.auth.getUser();
@@ -258,7 +354,7 @@ export default function GenerateFromNotes() {
     } finally {
       setProcessing(false);
     }
-  }, [file, sections, difficulty, strictMode, subjectHint, toast, collegeName, examType, duration, answeredMarks]);
+  }, [file, extractedText, sections, difficulty, strictMode, subjectHint, toast, collegeName, examType, duration, answeredMarks, subjectLocked, confirmedSubject]);
 
   const saveEdits = useCallback(() => {
     if (!result) return;
@@ -279,7 +375,6 @@ export default function GenerateFromNotes() {
     });
   };
 
-  // Group questions by section for display
   const questionsBySection = useMemo(() => {
     const qs = editMode ? editQuestions : (result?.questions || []);
     const grouped: Record<string, AIQuestion[]> = {};
@@ -316,6 +411,70 @@ export default function GenerateFromNotes() {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      {/* Subject Confirmation Dialog */}
+      <Dialog open={showSubjectDialog} onOpenChange={setShowSubjectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-accent" /> Subject Detection
+            </DialogTitle>
+            <DialogDescription>
+              AI has analyzed your content. Please confirm or change the detected subject.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Detected Subject</span>
+                {pendingDetection && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {pendingDetection.confidence}% confidence
+                  </Badge>
+                )}
+              </div>
+              <p className="text-lg font-semibold text-foreground">{pendingResult?.detectedSubject || "Unknown"}</p>
+            </div>
+
+            {pendingDetection && pendingDetection.topScores.length > 1 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Other possible subjects:</p>
+                {pendingDetection.topScores.slice(1, 4).map((s, i) => (
+                  <button
+                    key={i}
+                    className="w-full text-left rounded-md border border-border p-2 text-sm hover:bg-accent/10 transition-colors flex justify-between items-center"
+                    onClick={() => setManualSubjectInput(s.name)}
+                  >
+                    <span>{s.name}</span>
+                    <Badge variant="outline" className="text-[10px]">score: {s.score}</Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Change subject manually</Label>
+              <Input
+                value={manualSubjectInput}
+                onChange={e => setManualSubjectInput(e.target.value)}
+                placeholder="Enter correct subject name"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => {
+              setShowSubjectDialog(false);
+              setPendingResult(null);
+              setProcessing(false);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={() => confirmSubject(manualSubjectInput || pendingResult?.detectedSubject || "Unknown")}>
+              <Lock className="w-3.5 h-3.5 mr-1.5" /> Confirm & Lock
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
@@ -359,6 +518,13 @@ export default function GenerateFromNotes() {
                 <FileText className="w-10 h-10 text-accent mb-3" />
                 <p className="text-sm font-medium text-foreground">{file.name}</p>
                 <p className="text-xs text-muted-foreground mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+                {contentStats && (
+                  <div className="flex gap-3 mt-2 text-[10px] text-muted-foreground">
+                    <span>{contentStats.words.toLocaleString()} words</span>
+                    <span>{contentStats.lines} lines</span>
+                    <span>{(contentStats.chars / 1024).toFixed(1)} KB text</span>
+                  </div>
+                )}
                 <Button variant="ghost" size="sm" className="mt-3 text-destructive" onClick={(e) => { e.stopPropagation(); removeFile(); }}>
                   <X className="w-3.5 h-3.5 mr-1" /> Remove
                 </Button>
@@ -372,17 +538,41 @@ export default function GenerateFromNotes() {
             )}
           </div>
 
-          {/* Subject Hint */}
-          <div className="elevated-card rounded-xl p-4 space-y-3">
-            <Label className="text-sm font-medium">Subject Hint (optional)</Label>
-            <Input
-              value={subjectHint}
-              onChange={e => setSubjectHint(e.target.value)}
-              placeholder="e.g. Database Management Systems"
-              className="text-sm"
-            />
-            <p className="text-[10px] text-muted-foreground">Leave empty for auto-detection</p>
-          </div>
+          {/* Subject Lock Status */}
+          {subjectLocked && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="elevated-card rounded-xl p-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-accent" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{confirmedSubject}</p>
+                    <p className="text-[10px] text-muted-foreground">Subject locked — AI will not change this</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={unlockSubject} className="text-xs">
+                  <Unlock className="w-3 h-3 mr-1" /> Unlock
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Subject Hint (only when not locked) */}
+          {!subjectLocked && (
+            <div className="elevated-card rounded-xl p-4 space-y-3">
+              <Label className="text-sm font-medium">Subject Hint (optional)</Label>
+              <Input
+                value={subjectHint}
+                onChange={e => setSubjectHint(e.target.value)}
+                placeholder="e.g. Database Management Systems"
+                className="text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground">Leave empty for auto-detection. You'll be asked to confirm before generation.</p>
+            </div>
+          )}
 
           {/* Strict Mode */}
           <div className="elevated-card rounded-xl p-4">
@@ -543,11 +733,12 @@ export default function GenerateFromNotes() {
                 Upload your lecture notes, syllabus, or study material. The AI will analyze the content and generate a structured university-style question paper.
               </p>
               <div className="mt-6 flex flex-wrap gap-2 justify-center">
+                <Badge variant="secondary" className="text-xs">🔍 Subject Detection</Badge>
+                <Badge variant="secondary" className="text-xs">🔒 Subject Lock</Badge>
                 <Badge variant="secondary" className="text-xs">📝 Short answers</Badge>
                 <Badge variant="secondary" className="text-xs">📖 Long answers</Badge>
-                <Badge variant="secondary" className="text-xs">🔢 Numericals</Badge>
-                <Badge variant="secondary" className="text-xs">📊 Case Studies</Badge>
                 <Badge variant="secondary" className="text-xs">🔄 OR Options</Badge>
+                <Badge variant="secondary" className="text-xs">✅ AI Validation</Badge>
               </div>
             </div>
           ) : (
@@ -558,22 +749,50 @@ export default function GenerateFromNotes() {
                   <CheckCircle2 className="w-4 h-4 text-accent" /> AI Analysis
                 </h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Detected Subject</span><span className="text-foreground font-medium">{result.detectedSubject}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Questions Generated</span><span className="text-foreground font-medium">{result.questions.length}</span></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Subject</span>
+                    <div className="flex items-center gap-1.5">
+                      {subjectLocked && <Lock className="w-3 h-3 text-accent" />}
+                      <span className="text-foreground font-medium">{result.detectedSubject}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Questions Generated</span>
+                    <span className="text-foreground font-medium">{result.questions.length}</span>
+                  </div>
                   {result.contentSummary && (
                     <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 mt-2">{result.contentSummary}</p>
                   )}
-                  <p className="text-xs text-muted-foreground font-medium mt-2">Detected Units</p>
-                  <div className="flex gap-1 flex-wrap">
-                    {result.detectedUnits.map((u, i) => (
-                      <Badge key={i} variant="secondary" className="text-[10px]">{u}</Badge>
-                    ))}
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs text-muted-foreground font-medium">Detected Topics</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 text-[10px] px-1.5"
+                        onClick={() => setShowTopicsReview(!showTopicsReview)}
+                      >
+                        <Edit3 className="w-2.5 h-2.5 mr-0.5" /> {showTopicsReview ? "Done" : "Edit"}
+                      </Button>
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {editableUnits.map((u, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] gap-1">
+                          {u}
+                          {showTopicsReview && (
+                            <button onClick={() => removeUnit(u)} className="hover:text-destructive">
+                              <XCircle className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                   {result.warnings && result.warnings.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {result.warnings.map((w, i) => (
-                        <p key={i} className="text-xs text-warning flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" /> {w}
+                        <p key={i} className="text-xs text-destructive flex items-start gap-1">
+                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {w}
                         </p>
                       ))}
                     </div>
@@ -693,7 +912,7 @@ export default function GenerateFromNotes() {
                                         <Badge variant="outline" className="text-[10px]">{q.unit}</Badge>
                                         <Badge variant="outline" className={cn(
                                           "text-[10px]",
-                                          q.difficulty === "Easy" && "border-success/50 text-success",
+                                          q.difficulty === "Easy" && "border-green-500/50 text-green-600 dark:text-green-400",
                                           q.difficulty === "Hard" && "border-destructive/50 text-destructive",
                                         )}>{q.difficulty}</Badge>
                                         <Badge variant="secondary" className="text-[10px]">{q.type}</Badge>
@@ -726,6 +945,7 @@ export default function GenerateFromNotes() {
                   <span>Total: {answeredMarks} marks • {result.questions.length} questions</span>
                   <span className="flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-accent" /> AI Generated from Notes
+                    {subjectLocked && <Lock className="w-3 h-3 text-accent ml-1" />}
                   </span>
                 </div>
               </div>
