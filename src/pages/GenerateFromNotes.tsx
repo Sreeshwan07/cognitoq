@@ -154,11 +154,23 @@ export default function GenerateFromNotes() {
     setSections(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateFromNotes = useCallback(async () => {
-    if (!file) return;
+  const generateFromNotes = useCallback(async (isShuffle = false) => {
+    if (!file && !isShuffle) return;
+    if (isShuffle && !extractedText) return;
+
+    // Check shuffle limit
+    if (isShuffle && shuffleHistory.length >= MAX_SHUFFLES) {
+      toast({
+        title: "Shuffle Limit Reached",
+        description: `Maximum ${MAX_SHUFFLES} unique shuffles supported. Remove file and re-upload for fresh generation.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessing(true);
     setProgress(0);
-    setProgressLabel("Reading file...");
+    setProgressLabel(isShuffle ? "Generating new shuffle..." : "Reading file...");
     setResult(null);
 
     try {
