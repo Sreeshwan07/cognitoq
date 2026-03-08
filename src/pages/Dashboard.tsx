@@ -80,7 +80,7 @@ export default function Dashboard() {
   const [recentPapers, setRecentPapers] = useState<RecentPaper[]>([]);
   const [papersCount, setPapersCount] = useState(0);
   const [avgGenTime, setAvgGenTime] = useState(0);
-  const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0);
+  
   const [loading, setLoading] = useState(true);
   const [selectedPaper, setSelectedPaper] = useState<RecentPaper | null>(null);
 
@@ -118,19 +118,6 @@ export default function Dashboard() {
       .select("generation_time_ms" as any)
       .eq("user_id", user.id);
 
-    // Count uploaded questions
-    const { data: uploads } = await supabase
-      .from("uploaded_papers")
-      .select("questions")
-      .eq("user_id", user.id);
-
-    let uploadedQs = 0;
-    if (uploads) {
-      uploads.forEach((u: any) => {
-        if (Array.isArray(u.questions)) uploadedQs += u.questions.length;
-      });
-    }
-
     // Calculate avg gen time
     let avgTime = 0;
     if (allPapers && allPapers.length > 0) {
@@ -143,11 +130,10 @@ export default function Dashboard() {
     setRecentPapers((papers as any) || []);
     setPapersCount(totalPapers || 0);
     setAvgGenTime(avgTime);
-    setUploadedQuestionsCount(uploadedQs);
     setLoading(false);
   };
 
-  const totalQuestions = questionBankCount + uploadedQuestionsCount;
+  const totalQuestions = questionBankCount;
 
   const deletePaper = async (id: string) => {
     await supabase.from("papers").delete().eq("id", id);
@@ -211,7 +197,7 @@ export default function Dashboard() {
             title="Total Questions"
             value={loading ? "..." : totalQuestions.toLocaleString()}
             icon={<Database className="w-5 h-5" />}
-            subtitle={`${questionBankCount} bank + ${uploadedQuestionsCount} uploaded`}
+            subtitle={`${questionBankCount} questions in bank`}
           />
         </motion.div>
         <motion.div variants={item}>
@@ -233,7 +219,7 @@ export default function Dashboard() {
         <motion.div variants={item}>
           <StatCard
             title="Syllabus Coverage"
-            value={`${Math.min(94 + Math.floor(uploadedQuestionsCount / 10), 100)}%`}
+            value={`${Math.min(94 + Math.floor(papersCount / 5), 100)}%`}
             icon={<TrendingUp className="w-5 h-5" />}
             subtitle="Based on question coverage"
           />

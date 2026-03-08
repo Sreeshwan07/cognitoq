@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const fetchProfile = async (userId: string) => {
-    const { data: prof } = await supabase
+    const { data: prof, error: profError } = await supabase
       .from("profiles")
       .select("full_name, email, status")
       .eq("id", userId)
@@ -58,7 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("role")
       .eq("user_id", userId);
 
-    setProfile(prof);
+    if (prof && !profError) {
+      setProfile(prof);
+    } else {
+      // Fallback to auth user metadata when profile row is missing
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setProfile({
+          full_name: user.user_metadata?.full_name || user.email || "",
+          email: user.email || "",
+          status: "approved",
+        });
+      }
+    }
     setRole(roles?.[0]?.role || "faculty");
   };
 
