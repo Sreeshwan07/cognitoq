@@ -1474,10 +1474,7 @@ export default function GeneratePaper() {
                           <SectionBlock
                             title={config.name}
                             markLabel={`${config.marks} Marks Each`}
-                            instruction={config.questionsToAnswer < config.totalQuestions
-                              ? `Answer any ${config.questionsToAnswer} out of ${config.totalQuestions} questions`
-                              : "Answer all questions"
-                            }
+                            instruction={formatSectionInstruction(config.questionsToAnswer, config.totalQuestions, config.marks)}
                             questions={sectionQs}
                             startNum={startNum}
                             totalMarks={config.questionsToAnswer * config.marks}
