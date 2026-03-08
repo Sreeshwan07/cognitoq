@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Upload, Search, Plus, Trash2, Tag, BookOpen, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, Search, Plus, Trash2, Tag, BookOpen, Loader2, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
