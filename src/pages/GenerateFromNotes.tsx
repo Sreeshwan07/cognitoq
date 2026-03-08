@@ -111,6 +111,8 @@ export default function GenerateFromNotes() {
     setResult(null);
     setEditMode(false);
     setExtractedText("");
+    setShuffleHistory([]);
+    setCurrentShuffleIndex(0);
   }, [toast]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
