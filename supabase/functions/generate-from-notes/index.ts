@@ -9,13 +9,28 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, sections, difficulty, strictMode, subjectHint } = await req.json();
+    const { text: rawText, sections, difficulty, strictMode, subjectHint } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // === SERVER-SIDE TEXT CLEANING (defense in depth) ===
+    let text = (rawText || "").toString();
+    // Remove any remaining PDF structural artifacts
+    text = text.replace(/%%?EOF/g, " ")
+      .replace(/\d+\s+\d+\s+obj/g, " ")
+      .replace(/endobj/g, " ")
+      .replace(/stream|endstream/g, " ")
+      .replace(/FlateDecode|ASCIIHexDecode|LZWDecode/g, " ")
+      .replace(/\/(?:Length|Registry|Ordering|Supplement|Filter|Type|Page|Font)\b[^\n]*/g, " ")
+      .replace(/<<[^>]*>>/g, " ")
+      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
     if (!text || text.trim().length < 50) {
-      return new Response(JSON.stringify({ error: "Uploaded content is too short to generate questions from." }), {
+      return new Response(JSON.stringify({ error: "Uploaded content is too short or contains no readable academic text." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
