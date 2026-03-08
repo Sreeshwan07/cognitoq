@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { exportAsPdf, exportAsDocx, exportAsTxt } from "@/lib/exportUtils";
+import { saveQuestionsToBank } from "@/lib/saveQuestions";
 
 const ALLOWED_EXT = [".pdf", ".docx", ".txt"];
 const MAX_SIZE = 15 * 1024 * 1024;
