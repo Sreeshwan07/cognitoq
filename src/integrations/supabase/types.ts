@@ -114,6 +114,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          last_active_at: string | null
           status: string
           updated_at: string
         }
@@ -124,6 +125,7 @@ export type Database = {
           email?: string
           full_name?: string
           id: string
+          last_active_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -134,6 +136,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          last_active_at?: string | null
           status?: string
           updated_at?: string
         }

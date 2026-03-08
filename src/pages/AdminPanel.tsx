@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import ActiveUsersMonitor from "@/components/ActiveUsersMonitor";
 import {
   Select,
   SelectContent,
@@ -202,6 +203,9 @@ export default function AdminPanel() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Active Users Monitor */}
+      <ActiveUsersMonitor />
 
       {/* Users Table */}
       <div className="elevated-card rounded-xl overflow-hidden">
