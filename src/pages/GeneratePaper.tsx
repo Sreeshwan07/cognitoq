@@ -900,15 +900,6 @@ export default function GeneratePaper() {
                 </Select>
               </div>
             </div>
-                <SelectContent>
-                  {filteredSubjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.code} — {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {/* Section Configuration */}
