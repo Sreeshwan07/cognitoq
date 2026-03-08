@@ -86,6 +86,11 @@ export default function GenerateFromNotes() {
   const [editMode, setEditMode] = useState(false);
   const [editQuestions, setEditQuestions] = useState<AIQuestion[]>([]);
 
+  // Smart Shuffle state — tracks all previously generated questions across shuffles
+  const [shuffleHistory, setShuffleHistory] = useState<string[][]>([]); // array of question text arrays per shuffle
+  const [currentShuffleIndex, setCurrentShuffleIndex] = useState(0);
+  const MAX_SHUFFLES = 4;
+
   const totalMarks = useMemo(() => sections.reduce((s, sec) => s + sec.totalQuestions * sec.marks, 0), [sections]);
   const answeredMarks = useMemo(() => sections.reduce((s, sec) => s + sec.questionsToAnswer * sec.marks, 0), [sections]);
 
