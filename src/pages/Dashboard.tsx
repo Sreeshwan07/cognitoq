@@ -197,7 +197,7 @@ export default function Dashboard() {
             title="Total Questions"
             value={loading ? "..." : totalQuestions.toLocaleString()}
             icon={<Database className="w-5 h-5" />}
-            subtitle={`${questionBankCount} bank + ${uploadedQuestionsCount} uploaded`}
+            subtitle={`${questionBankCount} questions in bank`}
           />
         </motion.div>
         <motion.div variants={item}>
