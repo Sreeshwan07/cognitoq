@@ -204,6 +204,9 @@ export default function AdminPanel() {
         </Select>
       </div>
 
+      {/* Active Users Monitor */}
+      <ActiveUsersMonitor />
+
       {/* Users Table */}
       <div className="elevated-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
