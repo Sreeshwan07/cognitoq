@@ -30,6 +30,7 @@ interface SavedPaper {
 
 export default function SavedPapers() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [papers, setPapers] = useState<SavedPaper[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
