@@ -33,15 +33,26 @@ interface PaperMeta {
   sections?: SectionConfig[];
 }
 
+const numberWords: Record<number, string> = {
+  1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE",
+  6: "SIX", 7: "SEVEN", 8: "EIGHT", 9: "NINE", 10: "TEN",
+  11: "ELEVEN", 12: "TWELVE", 13: "THIRTEEN", 14: "FOURTEEN", 15: "FIFTEEN",
+};
+
+function formatInstruction(questionsToAnswer: number, totalQuestions: number, marks: number): string {
+  if (questionsToAnswer >= totalQuestions) return "Answer all questions";
+  const word = numberWords[questionsToAnswer] || String(questionsToAnswer);
+  const totalMarks = questionsToAnswer * marks;
+  return `Answer ANY ${word} out of ${totalQuestions} questions (${questionsToAnswer} × ${marks} = ${totalMarks} Marks)`;
+}
+
 function groupBySection(questions: ExportQuestion[], meta: PaperMeta): { title: string; instruction: string; markLabel: string; questions: ExportQuestion[] }[] {
   if (meta.sections && meta.sections.length > 0) {
     let offset = 0;
     return meta.sections.map(section => {
       const sectionQs = questions.slice(offset, offset + section.totalQuestions);
       offset += section.totalQuestions;
-      const instruction = section.questionsToAnswer < section.totalQuestions
-        ? `Answer any ${section.questionsToAnswer} out of ${section.totalQuestions} questions`
-        : "Answer all questions";
+      const instruction = formatInstruction(section.questionsToAnswer, section.totalQuestions, section.marks);
       return {
         title: section.name,
         instruction,
