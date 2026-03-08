@@ -1,0 +1,1 @@
+ALTER TABLE public.questions ADD COLUMN exclude_from_paper boolean NOT NULL DEFAULT false;
