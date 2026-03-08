@@ -9,13 +9,28 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, sections, difficulty, strictMode, subjectHint } = await req.json();
+    const { text: rawText, sections, difficulty, strictMode, subjectHint } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // === SERVER-SIDE TEXT CLEANING (defense in depth) ===
+    let text = (rawText || "").toString();
+    // Remove any remaining PDF structural artifacts
+    text = text.replace(/%%?EOF/g, " ")
+      .replace(/\d+\s+\d+\s+obj/g, " ")
+      .replace(/endobj/g, " ")
+      .replace(/stream|endstream/g, " ")
+      .replace(/FlateDecode|ASCIIHexDecode|LZWDecode/g, " ")
+      .replace(/\/(?:Length|Registry|Ordering|Supplement|Filter|Type|Page|Font)\b[^\n]*/g, " ")
+      .replace(/<<[^>]*>>/g, " ")
+      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
     if (!text || text.trim().length < 50) {
-      return new Response(JSON.stringify({ error: "Uploaded content is too short to generate questions from." }), {
+      return new Response(JSON.stringify({ error: "Uploaded content is too short or contains no readable academic text." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -31,45 +46,51 @@ serve(async (req) => {
       ? "CRITICAL: Generate questions ONLY from the provided content. Do NOT use any external knowledge. Every question must be directly answerable from the uploaded notes."
       : "Generate questions primarily from the provided content, but you may use general academic knowledge to improve question quality.";
 
-    const systemPrompt = `You are an expert university question paper setter with deep academic expertise.
-
-Your job is to carefully analyze the uploaded content, understand topics deeply, then generate a structured academic question paper.
+    const systemPrompt = `You are a university-level academic question paper setter.
 
 ${strictNote}
 
-STRICT RULES — FOLLOW EXACTLY:
-- Use ONLY the uploaded content as source material. Do NOT use outside knowledge. Do NOT guess missing topics. Do NOT mix subjects.
-- If the content is insufficient to generate the requested number of questions, set a warning: "Uploaded content insufficient for full paper generation."
+CRITICAL PRE-PROCESSING RULES:
+- The content has been pre-cleaned, but if you see ANY remaining PDF structural terms (obj, endobj, stream, FlateDecode, xref, etc.), COMPLETELY IGNORE them.
+- Focus ONLY on readable academic sentences, headings, definitions, and concepts.
+- Do NOT treat PDF metadata, encoding strings, or technical markup as academic content.
 
-STEP 1 — ANALYZE CONTENT (internal, do not expose):
-- Identify: subject name, major topics, subtopics, key definitions, important concepts, repeated/high-weightage areas
-- Group topics logically into units
-- If content is too short or unclear, return a warning
+SUBJECT DETECTION (STRICT):
+- Detect subject ONLY from academic text content (sentences, definitions, concepts).
+- Use keyword matching: normalization/SQL/DBMS keywords → DBMS; scheduling/deadlock/process → Operating Systems; routing/TCP/IP → Computer Networks; etc.
+- If the subject cannot be clearly determined from the content, set detectedSubject to "Unknown" and add warning: "Subject unclear from uploaded notes."
+- Do NOT guess or mix subjects.
 
-STEP 2 — CREATE QUESTION BLUEPRINT:
-- Cover ALL major topics from the content — avoid overloading any single topic
-- Include a mix of: concept-based short questions, analytical long questions, application-based questions
-- Maintain academic balance across units
+QUESTION GENERATION PIPELINE:
 
-STEP 3 — GENERATE QUESTIONS following these rules:
-- Every question MUST be directly derivable from the uploaded content
-- No duplicate or near-duplicate questions
-- Each question must specify: text, marks, unit/topic, difficulty (Easy/Medium/Hard), type (Theory/Numerical/Application/Case Study), and Bloom's taxonomy level
-- For OR questions: both alternatives MUST be from the SAME unit/topic, carry the SAME marks, but cover DIFFERENT concepts within that unit
-- Difficulty distribution: ${difficulty === "mixed" ? "balanced mix of Easy, Medium, Hard" : difficulty}
-- Short answer questions (1-3 marks): test definitions, basic concepts — direct from notes, simple and clear
-- Medium questions (5 marks): test understanding, explanations with examples
-- Long questions (10+ marks): test application, analysis, case studies — analytical and explanation-based
+STEP 1 — INTERNAL ANALYSIS (do not expose):
+- Identify: subject, major topics, subtopics, key definitions, important concepts, high-weightage areas
+- Group into logical units
+- If content insufficient → add warning
 
-STEP 4 — QUALITY VERIFICATION (before returning):
-- ✔ Every question comes from uploaded content
-- ✔ No unrelated or out-of-syllabus topics
+STEP 2 — BLUEPRINT:
+- Cover ALL major topics — no overloading any single topic
+- Mix: concept-based short questions + analytical long questions + application-based
+
+STEP 3 — GENERATE with these rules:
+- Every question MUST be directly derivable from the readable academic content
+- No duplicates or near-duplicates
+- Specify for each: text, marks, unit, difficulty (Easy/Medium/Hard), type (Theory/Numerical/Application/Case Study), Bloom's level
+- OR questions: SAME unit, SAME marks, DIFFERENT concepts within that unit
+- Difficulty: ${difficulty === "mixed" ? "balanced mix of Easy, Medium, Hard" : difficulty}
+- Short (1-3 marks): definitions, basic concepts
+- Medium (5 marks): understanding, explanations with examples  
+- Long (10+ marks): application, analysis, case studies
+
+STEP 4 — VALIDATE before returning:
+- ✔ Every question traceable to uploaded content
+- ✔ No unrelated/out-of-syllabus topics
 - ✔ No repetition
-- ✔ Subject is consistent throughout
+- ✔ Subject consistent throughout
 - ✔ Proper academic wording
-- If any check fails, regenerate that question
+- If validation fails → regenerate that question
 
-DO NOT GUESS. If content is unclear or insufficient, report it as a warning.`;
+If content is unclear or insufficient, report as warning. DO NOT GUESS.`;
 
     const userPrompt = `Analyze the following academic content and generate exam questions.
 

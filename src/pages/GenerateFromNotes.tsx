@@ -152,34 +152,60 @@ export default function GenerateFromNotes() {
     setResult(null);
 
     try {
-      // Step 1: Extract text
-      let text = "";
+      // Step 1: Extract and CLEAN text
+      let rawText = "";
       setProgress(10);
       
       if (file.type === "text/plain" || file.name.endsWith(".txt")) {
-        text = await file.text();
+        rawText = await file.text();
       } else {
-        // For PDF/DOCX, read as base64 and let AI handle it
-        // For now, try reading as text (works for some files)
         try {
-          text = await file.text();
-          // Clean up binary garbage
-          text = text.replace(/[^\x20-\x7E\n\r\t]/g, " ").replace(/\s{3,}/g, " ").trim();
+          rawText = await file.text();
         } catch {
-          text = "";
-        }
-        
-        if (text.length < 100) {
-          toast({
-            title: "Text Extraction Limited",
-            description: "For best results with PDF/DOCX, consider converting to TXT format first. Proceeding with available content.",
-            variant: "destructive",
-          });
+          rawText = "";
         }
       }
 
-      if (text.length < 50) {
-        toast({ title: "Insufficient Content", description: "The file doesn't contain enough readable text.", variant: "destructive" });
+      // === MANDATORY TEXT CLEANING FILTER ===
+      // Remove PDF binary/structural artifacts
+      const pdfJunkPatterns = [
+        /%%?EOF/g,
+        /%PDF[\s\S]*?(?=\n[A-Z])/g,
+        /\d+\s+\d+\s+obj[\s\S]*?endobj/g,
+        /stream[\s\S]*?endstream/g,
+        /\/\w+\s*(?:\/\w+|\[.*?\]|\(.*?\)|\d+)/g,  // /Type /Page etc.
+        /xref[\s\S]*?startxref\s*\d+/g,
+        /<<[\s\S]*?>>/g,
+        /FlateDecode|ASCIIHexDecode|LZWDecode|DCTDecode/g,
+        /\/(?:Length|Registry|Ordering|Supplement|Filter|Width|Height|BitsPerComponent)\b[^\n]*/g,
+        /[^\x20-\x7E\n\r\t]/g, // non-printable characters
+      ];
+      
+      let text = rawText;
+      for (const pattern of pdfJunkPatterns) {
+        text = text.replace(pattern, " ");
+      }
+      
+      // Collapse excessive whitespace
+      text = text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+      
+      // Filter: keep only lines that look like real sentences/headings (3+ word lines)
+      const lines = text.split("\n");
+      const academicLines = lines.filter(line => {
+        const trimmed = line.trim();
+        if (trimmed.length < 5) return false;
+        const wordCount = trimmed.split(/\s+/).length;
+        // Keep lines with 2+ real words
+        return wordCount >= 2;
+      });
+      text = academicLines.join("\n").trim();
+
+      if (text.length < 100) {
+        toast({
+          title: "Invalid Academic Content",
+          description: "Could not extract readable academic text. For PDF/DOCX files, please convert to TXT format first.",
+          variant: "destructive",
+        });
         setProcessing(false);
         return;
       }
