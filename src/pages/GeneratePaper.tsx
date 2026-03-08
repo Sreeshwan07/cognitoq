@@ -566,6 +566,43 @@ export default function GeneratePaper() {
         }
       }
 
+      // Auto-save individual questions to question bank
+      if (user && currentSubject) {
+        const allQsToSave = allVariants.flatMap(variant =>
+          variant.flatMap(q => {
+            const items = [{
+              text: q.text,
+              marks: q.marks,
+              unit: q.unit,
+              difficulty: q.difficulty,
+              type: q.type,
+              bloom: q.bloom,
+              subject: currentSubject.name,
+              subject_code: currentSubject.code,
+              source: "generated",
+            }];
+            if (q.orAlternative) {
+              items.push({
+                text: q.orAlternative.text,
+                marks: q.orAlternative.marks,
+                unit: q.orAlternative.unit,
+                difficulty: q.orAlternative.difficulty,
+                type: q.orAlternative.type,
+                bloom: q.orAlternative.bloom,
+                subject: currentSubject.name,
+                subject_code: currentSubject.code,
+                source: "generated",
+              });
+            }
+            return items;
+          })
+        );
+        const { saved } = await saveQuestionsToBank(allQsToSave, user.id);
+        if (saved > 0) {
+          console.log(`Saved ${saved} questions to question bank`);
+        }
+      }
+
       const totalQs = allVariants.reduce((s, v) => s + v.length, 0);
       toast({
         title: "Paper Generated!",
