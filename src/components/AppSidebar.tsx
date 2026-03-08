@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
-  Upload,
+  
   FolderOpen,
   LogOut,
   Zap,

@@ -42,7 +42,6 @@ const item = {
 
 const quickActions = [
   { label: "Browse Subjects", icon: GraduationCap, to: "/subjects", color: "bg-primary/10 text-primary" },
-  { label: "Upload Questions", icon: Upload, to: "/upload", color: "bg-info/10 text-info" },
   { label: "Generate Paper", icon: Zap, to: "/generate", color: "bg-accent/10 text-accent" },
   { label: "Saved Papers", icon: BarChart3, to: "/saved", color: "bg-success/10 text-success" },
 ];

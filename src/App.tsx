@@ -42,7 +42,7 @@ const App = () => (
               <Route path="/question-bank" element={<QuestionBank />} />
               <Route path="/generate" element={<GeneratePaper />} />
               <Route path="/generate-from-notes" element={<GenerateFromNotes />} />
-              <Route path="/upload" element={<UploadPaper />} />
+              
               <Route path="/saved" element={<SavedPapers />} />
               <Route path="/pyq" element={<PreviousYearPapers />} />
               <Route path="/settings" element={<SettingsPage />} />
