@@ -126,6 +126,8 @@ export default function GenerateFromNotes() {
     setResult(null);
     setEditMode(false);
     setExtractedText("");
+    setShuffleHistory([]);
+    setCurrentShuffleIndex(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
