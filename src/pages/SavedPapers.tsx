@@ -233,6 +233,9 @@ export default function SavedPapers() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => downloadPaper(paper, "pdf")} title="Download PDF">
                       <Download className="w-3.5 h-3.5" />
                     </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={() => generateSimilar(paper)} title="Generate Similar Paper">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => duplicatePaper(paper)} title="Duplicate">
                       <Copy className="w-3.5 h-3.5" />
                     </Button>
