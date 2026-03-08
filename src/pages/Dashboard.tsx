@@ -118,19 +118,6 @@ export default function Dashboard() {
       .select("generation_time_ms" as any)
       .eq("user_id", user.id);
 
-    // Count uploaded questions
-    const { data: uploads } = await supabase
-      .from("uploaded_papers")
-      .select("questions")
-      .eq("user_id", user.id);
-
-    let uploadedQs = 0;
-    if (uploads) {
-      uploads.forEach((u: any) => {
-        if (Array.isArray(u.questions)) uploadedQs += u.questions.length;
-      });
-    }
-
     // Calculate avg gen time
     let avgTime = 0;
     if (allPapers && allPapers.length > 0) {
@@ -143,7 +130,6 @@ export default function Dashboard() {
     setRecentPapers((papers as any) || []);
     setPapersCount(totalPapers || 0);
     setAvgGenTime(avgTime);
-    setUploadedQuestionsCount(uploadedQs);
     setLoading(false);
   };
 
