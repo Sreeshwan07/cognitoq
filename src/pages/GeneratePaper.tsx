@@ -813,13 +813,51 @@ export default function GeneratePaper() {
         >
           {/* Department & Subject */}
           <div className="elevated-card rounded-xl p-5 space-y-4">
-            <h3 className="font-display text-lg text-foreground flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-accent" /> Department & Subject
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg text-foreground flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-accent" /> Department & Subject
+              </h3>
+              {autoFilled && (
+                <Badge variant="secondary" className="text-[10px] bg-accent/10 text-accent border-accent/20">
+                  ✨ Auto-filled from syllabus
+                </Badge>
+              )}
+            </div>
+
+            {/* Subject FIRST */}
             <div className="space-y-2">
-              <Label>Department <span className="text-destructive">*</span></Label>
-              <Select value={department} onValueChange={(v) => { setDepartment(v); handleSubjectChange(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+              <Label>Subject <span className="text-destructive">*</span></Label>
+              <Select value={selectedSubject} onValueChange={handleSubjectChange}>
+                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                <SelectContent>
+                  {filteredSubjects.filter(s => s.branch !== "core").map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.code} — {s.name}
+                      {s.category === "open_elective" ? " (OE)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Department <span className="text-destructive">*</span></Label>
+                {fieldsLocked && (
+                  <button
+                    onClick={() => setFieldsLocked(false)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                  >
+                    Unlock to edit
+                  </button>
+                )}
+              </div>
+              <Select
+                value={department}
+                onValueChange={(v) => { setDepartment(v); setAutoFilled(false); setFieldsLocked(false); handleSubjectChange(""); }}
+                disabled={fieldsLocked}
+              >
+                <SelectTrigger className={fieldsLocked ? "opacity-70" : ""}><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
                   {branches.filter(b => b.id !== "core").map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.shortName} — {b.name}</SelectItem>
@@ -830,8 +868,12 @@ export default function GeneratePaper() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Year</Label>
-                <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setSemesterFilter(""); handleSubjectChange(""); }}>
-                  <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
+                <Select
+                  value={yearFilter}
+                  onValueChange={(v) => { setYearFilter(v); setSemesterFilter(""); setAutoFilled(false); setFieldsLocked(false); handleSubjectChange(""); }}
+                  disabled={fieldsLocked}
+                >
+                  <SelectTrigger className={fieldsLocked ? "opacity-70" : ""}><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all_years">All Years</SelectItem>
                     <SelectItem value="1">1st Year</SelectItem>
@@ -843,8 +885,12 @@ export default function GeneratePaper() {
               </div>
               <div className="space-y-2">
                 <Label>Semester</Label>
-                <Select value={semesterFilter} onValueChange={(v) => { setSemesterFilter(v); handleSubjectChange(""); }}>
-                  <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
+                <Select
+                  value={semesterFilter}
+                  onValueChange={(v) => { setSemesterFilter(v); setAutoFilled(false); setFieldsLocked(false); handleSubjectChange(""); }}
+                  disabled={fieldsLocked}
+                >
+                  <SelectTrigger className={fieldsLocked ? "opacity-70" : ""}><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all_sems">All Semesters</SelectItem>
                     {availableSemesters.map((s) => (
@@ -854,10 +900,6 @@ export default function GeneratePaper() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Subject <span className="text-destructive">*</span></Label>
-              <Select value={selectedSubject} onValueChange={handleSubjectChange}>
-                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
                 <SelectContent>
                   {filteredSubjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
