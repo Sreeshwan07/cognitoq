@@ -109,13 +109,13 @@ export default function PaperQualityScore({ result, onImprove, improving }: Pape
             </button>
           </TooltipTrigger>
           <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
-            <p className="font-semibold mb-1">How is this scored?</p>
-            <p>Unit Coverage (25) — Even question distribution across units.</p>
-            <p>Difficulty Balance (20) — Mix of Easy/Medium/Hard.</p>
-            <p>Marks Accuracy (15) — Correct marks distribution.</p>
-            <p>Duplicates (15) — No repeated questions.</p>
-            <p>Concept Depth (15) — Variety of cognitive levels.</p>
-            <p>Syllabus Relevance (10) — Questions match selected units.</p>
+            <p className="font-semibold mb-1">Rule-Based Scoring (100 pts)</p>
+            <p>📊 Unit Coverage (25) — (Covered ÷ Selected) × 25, penalty if &gt;40%.</p>
+            <p>⚖️ Difficulty Balance (20) — Ideal E:30% M:50% H:20%, −1 per 5% deviation.</p>
+            <p>🎯 Marks Accuracy (15) — Perfect=15, mismatch=10, wrong=0.</p>
+            <p>🔍 Duplicates (15) — 0=15, 1=10, 2+=5. Checks exact + concept overlap.</p>
+            <p>🧠 Concept Depth (15) — Theory/Application/Analytical, +5 each.</p>
+            <p>📚 Syllabus Relevance (10) — Perfect=10, 1 off=7, 2+ off=0.</p>
           </TooltipContent>
         </Tooltip>
       </div>
