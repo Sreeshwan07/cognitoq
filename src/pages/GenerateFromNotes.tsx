@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { exportAsPdf, exportAsDocx, exportAsTxt } from "@/lib/exportUtils";
+import { saveQuestionsToBank } from "@/lib/saveQuestions";
 
 const ALLOWED_EXT = [".pdf", ".docx", ".txt"];
 const MAX_SIZE = 15 * 1024 * 1024;
@@ -290,7 +291,7 @@ export default function GenerateFromNotes() {
         description: `${aiResult.questions.length} questions from "${aiResult.detectedSubject}" across ${aiResult.detectedUnits.length} units.`,
       });
 
-      // Save to database
+      // Save paper to database
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from("papers").insert({
@@ -308,6 +309,37 @@ export default function GenerateFromNotes() {
           exam_type: examType || null,
           duration: duration || null,
         } as any);
+
+        // Auto-save individual questions to question bank
+        const qsToSave = aiResult.questions.flatMap(q => {
+          const items = [{
+            text: q.text,
+            marks: q.marks,
+            unit: q.unit,
+            difficulty: q.difficulty,
+            type: q.type,
+            bloom: q.bloom,
+            subject: aiResult.detectedSubject,
+            source: "notes",
+          }];
+          if (q.orAlternativeText) {
+            items.push({
+              text: q.orAlternativeText,
+              marks: q.marks,
+              unit: q.unit,
+              difficulty: q.difficulty,
+              type: q.orAlternativeType || q.type,
+              bloom: q.orAlternativeBloom || q.bloom,
+              subject: aiResult.detectedSubject,
+              source: "notes",
+            });
+          }
+          return items;
+        });
+        const { saved } = await saveQuestionsToBank(qsToSave, user.id);
+        if (saved > 0) {
+          console.log(`Saved ${saved} questions to question bank from notes`);
+        }
       }
     } catch (err: any) {
       console.error("Generation error:", err);
