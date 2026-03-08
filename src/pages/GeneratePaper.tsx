@@ -900,6 +900,11 @@ export default function GeneratePaper() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-display text-foreground">Generate Paper</h1>
         <p className="text-muted-foreground mt-1">Configure and generate university-style question papers with OR options.</p>
+        {similarMode && (
+          <Badge className="mt-2 bg-accent/10 text-accent border-accent/20">
+            🔄 Similar Paper Mode — Same structure, different questions
+          </Badge>
+        )}
       </motion.div>
 
       <div className="grid lg:grid-cols-3 gap-6">
