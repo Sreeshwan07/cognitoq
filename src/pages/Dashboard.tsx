@@ -133,7 +133,7 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  const totalQuestions = questionBankCount + uploadedQuestionsCount;
+  const totalQuestions = questionBankCount;
 
   const deletePaper = async (id: string) => {
     await supabase.from("papers").delete().eq("id", id);
