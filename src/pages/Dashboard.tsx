@@ -219,7 +219,7 @@ export default function Dashboard() {
         <motion.div variants={item}>
           <StatCard
             title="Syllabus Coverage"
-            value={`${Math.min(94 + Math.floor(uploadedQuestionsCount / 10), 100)}%`}
+            value={`${Math.min(94 + Math.floor(papersCount / 5), 100)}%`}
             icon={<TrendingUp className="w-5 h-5" />}
             subtitle="Based on question coverage"
           />
