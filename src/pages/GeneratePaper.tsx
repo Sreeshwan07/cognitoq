@@ -80,15 +80,40 @@ export default function GeneratePaper() {
   const { toast } = useToast();
 
   // Department / Subject selection
-  const [department, setDepartment] = useState("");
-  const [yearFilter, setYearFilter] = useState("");
-  const [semesterFilter, setSemesterFilter] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState(searchParams.get("subject") || "");
-  const [autoFilled, setAutoFilled] = useState(false);
-  const [fieldsLocked, setFieldsLocked] = useState(false);
+  const initialSubject = searchParams.get("subject") || "";
+  const [department, setDepartment] = useState(() => {
+    if (initialSubject) {
+      const sub = getSubjectById(initialSubject);
+      return sub ? sub.branch : "";
+    }
+    return "";
+  });
+  const [yearFilter, setYearFilter] = useState(() => {
+    if (initialSubject) {
+      const sub = getSubjectById(initialSubject);
+      return sub ? String(sub.year) : "";
+    }
+    return "";
+  });
+  const [semesterFilter, setSemesterFilter] = useState(() => {
+    if (initialSubject) {
+      const sub = getSubjectById(initialSubject);
+      return sub ? String(sub.semester) : "";
+    }
+    return "";
+  });
+  const [selectedSubject, setSelectedSubject] = useState(initialSubject);
+  const [autoFilled, setAutoFilled] = useState(!!initialSubject);
+  const [fieldsLocked, setFieldsLocked] = useState(!!initialSubject);
 
   // Unit distribution
-  const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>([]);
+  const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>(() => {
+    if (initialSubject) {
+      const sub = getSubjectById(initialSubject);
+      if (sub) return sub.units.map(u => ({ unitName: u, selected: true, q2: 0, q5: 0, q10: 0 }));
+    }
+    return [];
+  });
   const [useUnitDistribution, setUseUnitDistribution] = useState(false);
 
   // Section-based config
