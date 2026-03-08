@@ -469,7 +469,7 @@ export default function GeneratePaper() {
   }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject, useSectionConfig, sections]);
 
   // Multi-variant generation
-  const generateQuestions = useCallback(() => {
+  const generateQuestions = useCallback(async () => {
     if (!isValid) {
       toast({ title: "Validation Error", description: validationErrors[0], variant: "destructive" });
       return;
@@ -484,6 +484,16 @@ export default function GeneratePaper() {
         variant: "destructive",
       });
     }
+
+    // Fetch excluded questions from DB
+    const { data: excludedData } = await supabase
+      .from("questions")
+      .select("text")
+      .eq("exclude_from_paper", true);
+    const newExcluded = new Set<string>(
+      (excludedData || []).map(q => q.text.toLowerCase().trim())
+    );
+    setExcludedTexts(newExcluded);
 
     const genStartTime = Date.now();
     setIsGenerating(true);
