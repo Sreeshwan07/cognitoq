@@ -171,15 +171,21 @@ export default function GeneratePaper() {
 
   const selectedUnitsCount = unitDistributions.filter(u => u.selected).length;
 
-  // Dynamic subject filtering
+  // All subjects for subject-first selection
+  const allSelectableSubjects = useMemo(() => {
+    return subjects.filter((s) => s.branch !== "core");
+  }, []);
+
+  // Dynamic subject filtering (when dept/year/sem are set first)
   const filteredSubjects = useMemo(() => {
+    if (!department && !yearFilter && !semesterFilter) return allSelectableSubjects;
     return subjects.filter((s) => {
       if (department && s.branch !== department && s.branch !== "core") return false;
       if (yearFilter && yearFilter !== "all_years" && s.year !== Number(yearFilter)) return false;
       if (semesterFilter && semesterFilter !== "all_sems" && s.semester !== Number(semesterFilter)) return false;
       return true;
     });
-  }, [department, yearFilter, semesterFilter]);
+  }, [department, yearFilter, semesterFilter, allSelectableSubjects]);
 
   const availableSemesters = useMemo(() => {
     if (!yearFilter || yearFilter === "all_years") return [1, 2, 3, 4, 5, 6, 7, 8];
