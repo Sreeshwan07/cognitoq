@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
-  Upload,
+  
   FolderOpen,
   LogOut,
   Zap,
@@ -27,7 +27,6 @@ const navItems = [
   { to: "/question-bank", icon: Database, label: "Question Bank" },
   { to: "/generate", icon: Zap, label: "Generate Paper" },
   { to: "/generate-from-notes", icon: Brain, label: "Generate from Notes" },
-  { to: "/upload", icon: Upload, label: "Upload Paper" },
   { to: "/saved", icon: FolderOpen, label: "Saved Papers" },
   { to: "/pyq", icon: BookOpen, label: "PYQ Papers" },
   { to: "/settings", icon: Settings, label: "Settings" },

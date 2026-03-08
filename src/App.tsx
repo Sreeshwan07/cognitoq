@@ -10,7 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import SubjectLibrary from "./pages/SubjectLibrary";
 import QuestionBank from "./pages/QuestionBank";
 import GeneratePaper from "./pages/GeneratePaper";
-import UploadPaper from "./pages/UploadPaper";
+
 import SavedPapers from "./pages/SavedPapers";
 import PreviousYearPapers from "./pages/PreviousYearPapers";
 import SettingsPage from "./pages/Settings";
@@ -42,7 +42,7 @@ const App = () => (
               <Route path="/question-bank" element={<QuestionBank />} />
               <Route path="/generate" element={<GeneratePaper />} />
               <Route path="/generate-from-notes" element={<GenerateFromNotes />} />
-              <Route path="/upload" element={<UploadPaper />} />
+              
               <Route path="/saved" element={<SavedPapers />} />
               <Route path="/pyq" element={<PreviousYearPapers />} />
               <Route path="/settings" element={<SettingsPage />} />
