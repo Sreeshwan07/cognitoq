@@ -89,6 +89,23 @@ export default function SavedPapers() {
     }
   };
 
+  const generateSimilar = (paper: SavedPaper) => {
+    // Store the paper config + excluded question texts in sessionStorage
+    const excludedTexts = Array.isArray(paper.questions)
+      ? paper.questions.map((q: any) => q.text?.toLowerCase?.().trim()).filter(Boolean)
+      : [];
+    const similarConfig = {
+      paperData: paper.paper_data,
+      subject: paper.subject,
+      department: paper.department,
+      excludedTexts,
+    };
+    sessionStorage.setItem("cognitoq_similar_config", JSON.stringify(similarConfig));
+    // Navigate to generate page with similar flag
+    navigate("/generate?similar=true");
+    toast({ title: "🔄 Loading similar paper config...", description: "Same structure, different questions." });
+  };
+
   const downloadPaper = (paper: SavedPaper, format: "pdf" | "txt") => {
     const questions = Array.isArray(paper.questions) ? paper.questions.map((q: any, i: number) => ({
       questionNumber: i + 1,
