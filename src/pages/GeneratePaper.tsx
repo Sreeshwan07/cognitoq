@@ -130,6 +130,7 @@ export default function GeneratePaper() {
   const [isDraft, setIsDraft] = useState(false);
   const [qualityScore, setQualityScore] = useState<QualityScoreResult | null>(null);
   const [isImproving, setIsImproving] = useState(false);
+  const [excludedTexts, setExcludedTexts] = useState<Set<string>>(new Set());
 
   // Track previously used question IDs for smart shuffle
   const usedQuestionSets = useRef<Set<string>[]>([]);
