@@ -80,7 +80,7 @@ export default function Dashboard() {
   const [recentPapers, setRecentPapers] = useState<RecentPaper[]>([]);
   const [papersCount, setPapersCount] = useState(0);
   const [avgGenTime, setAvgGenTime] = useState(0);
-  const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0);
+  
   const [loading, setLoading] = useState(true);
   const [selectedPaper, setSelectedPaper] = useState<RecentPaper | null>(null);
 
