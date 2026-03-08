@@ -131,9 +131,11 @@ export default function GeneratePaper() {
   const [qualityScore, setQualityScore] = useState<QualityScoreResult | null>(null);
   const [isImproving, setIsImproving] = useState(false);
   const [excludedTexts, setExcludedTexts] = useState<Set<string>>(new Set());
+  const [similarMode, setSimilarMode] = useState(false);
 
   // Track previously used question IDs for smart shuffle
   const usedQuestionSets = useRef<Set<string>[]>([]);
+  const similarAutoGenRef = useRef(false);
 
   // Computed
   const generatedQuestions = generatedVariants[activeVariant] || [];
