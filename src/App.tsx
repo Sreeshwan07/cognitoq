@@ -10,7 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import SubjectLibrary from "./pages/SubjectLibrary";
 import QuestionBank from "./pages/QuestionBank";
 import GeneratePaper from "./pages/GeneratePaper";
-import UploadPaper from "./pages/UploadPaper";
+
 import SavedPapers from "./pages/SavedPapers";
 import PreviousYearPapers from "./pages/PreviousYearPapers";
 import SettingsPage from "./pages/Settings";
