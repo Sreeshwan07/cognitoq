@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import {
   Upload, FileText, X, CheckCircle2, AlertCircle, Edit3, Save, Trash2,
-  Eye, Brain, Sparkles, BookOpen, Download, RefreshCw, Settings2, ShieldCheck
+  Eye, Brain, Sparkles, BookOpen, Download, RefreshCw, Settings2, ShieldCheck, Shuffle
 } from "lucide-react";
+import { buildKnowledgeContext } from "@/data/subjectKnowledge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,6 +86,11 @@ export default function GenerateFromNotes() {
   const [editMode, setEditMode] = useState(false);
   const [editQuestions, setEditQuestions] = useState<AIQuestion[]>([]);
 
+  // Smart Shuffle state — tracks all previously generated questions across shuffles
+  const [shuffleHistory, setShuffleHistory] = useState<string[][]>([]); // array of question text arrays per shuffle
+  const [currentShuffleIndex, setCurrentShuffleIndex] = useState(0);
+  const MAX_SHUFFLES = 4;
+
   const totalMarks = useMemo(() => sections.reduce((s, sec) => s + sec.totalQuestions * sec.marks, 0), [sections]);
   const answeredMarks = useMemo(() => sections.reduce((s, sec) => s + sec.questionsToAnswer * sec.marks, 0), [sections]);
 
@@ -105,6 +111,8 @@ export default function GenerateFromNotes() {
     setResult(null);
     setEditMode(false);
     setExtractedText("");
+    setShuffleHistory([]);
+    setCurrentShuffleIndex(0);
   }, [toast]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -118,6 +126,8 @@ export default function GenerateFromNotes() {
     setResult(null);
     setEditMode(false);
     setExtractedText("");
+    setShuffleHistory([]);
+    setCurrentShuffleIndex(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -144,75 +154,91 @@ export default function GenerateFromNotes() {
     setSections(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateFromNotes = useCallback(async () => {
-    if (!file) return;
+  const generateFromNotes = useCallback(async (isShuffle = false) => {
+    if (!file && !isShuffle) return;
+    if (isShuffle && !extractedText) return;
+
+    // Check shuffle limit
+    if (isShuffle && shuffleHistory.length >= MAX_SHUFFLES) {
+      toast({
+        title: "Shuffle Limit Reached",
+        description: `Maximum ${MAX_SHUFFLES} unique shuffles supported. Remove file and re-upload for fresh generation.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessing(true);
     setProgress(0);
-    setProgressLabel("Reading file...");
+    setProgressLabel(isShuffle ? "Generating new shuffle..." : "Reading file...");
     setResult(null);
 
     try {
-      // Step 1: Extract and CLEAN text
-      let rawText = "";
-      setProgress(10);
-      
-      if (file.type === "text/plain" || file.name.endsWith(".txt")) {
-        rawText = await file.text();
-      } else {
-        try {
-          rawText = await file.text();
-        } catch {
-          rawText = "";
+      let text = extractedText;
+
+      // Step 1: Extract and CLEAN text (skip if shuffle — reuse existing)
+      if (!isShuffle) {
+        let rawText = "";
+        setProgress(10);
+        
+        if (file!.type === "text/plain" || file!.name.endsWith(".txt")) {
+          rawText = await file!.text();
+        } else {
+          try {
+            rawText = await file!.text();
+          } catch {
+            rawText = "";
+          }
         }
-      }
 
-      // === MANDATORY TEXT CLEANING FILTER ===
-      // Remove PDF binary/structural artifacts
-      const pdfJunkPatterns = [
-        /%%?EOF/g,
-        /%PDF[\s\S]*?(?=\n[A-Z])/g,
-        /\d+\s+\d+\s+obj[\s\S]*?endobj/g,
-        /stream[\s\S]*?endstream/g,
-        /\/\w+\s*(?:\/\w+|\[.*?\]|\(.*?\)|\d+)/g,  // /Type /Page etc.
-        /xref[\s\S]*?startxref\s*\d+/g,
-        /<<[\s\S]*?>>/g,
-        /FlateDecode|ASCIIHexDecode|LZWDecode|DCTDecode/g,
-        /\/(?:Length|Registry|Ordering|Supplement|Filter|Width|Height|BitsPerComponent)\b[^\n]*/g,
-        /[^\x20-\x7E\n\r\t]/g, // non-printable characters
-      ];
-      
-      let text = rawText;
-      for (const pattern of pdfJunkPatterns) {
-        text = text.replace(pattern, " ");
-      }
-      
-      // Collapse excessive whitespace
-      text = text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-      
-      // Filter: keep only lines that look like real sentences/headings (3+ word lines)
-      const lines = text.split("\n");
-      const academicLines = lines.filter(line => {
-        const trimmed = line.trim();
-        if (trimmed.length < 5) return false;
-        const wordCount = trimmed.split(/\s+/).length;
-        // Keep lines with 2+ real words
-        return wordCount >= 2;
-      });
-      text = academicLines.join("\n").trim();
-
-      if (text.length < 100) {
-        toast({
-          title: "Invalid Academic Content",
-          description: "Could not extract readable academic text. For PDF/DOCX files, please convert to TXT format first.",
-          variant: "destructive",
+        const pdfJunkPatterns = [
+          /%%?EOF/g,
+          /%PDF[\s\S]*?(?=\n[A-Z])/g,
+          /\d+\s+\d+\s+obj[\s\S]*?endobj/g,
+          /stream[\s\S]*?endstream/g,
+          /\/\w+\s*(?:\/\w+|\[.*?\]|\(.*?\)|\d+)/g,
+          /xref[\s\S]*?startxref\s*\d+/g,
+          /<<[\s\S]*?>>/g,
+          /FlateDecode|ASCIIHexDecode|LZWDecode|DCTDecode/g,
+          /\/(?:Length|Registry|Ordering|Supplement|Filter|Width|Height|BitsPerComponent)\b[^\n]*/g,
+          /[^\x20-\x7E\n\r\t]/g,
+        ];
+        
+        text = rawText;
+        for (const pattern of pdfJunkPatterns) {
+          text = text.replace(pattern, " ");
+        }
+        text = text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+        
+        const lines = text.split("\n");
+        const academicLines = lines.filter(line => {
+          const trimmed = line.trim();
+          if (trimmed.length < 5) return false;
+          return trimmed.split(/\s+/).length >= 2;
         });
-        setProcessing(false);
-        return;
+        text = academicLines.join("\n").trim();
+
+        if (text.length < 100) {
+          toast({
+            title: "Invalid Academic Content",
+            description: "Could not extract readable academic text. For PDF/DOCX files, please convert to TXT format first.",
+            variant: "destructive",
+          });
+          setProcessing(false);
+          return;
+        }
+
+        setExtractedText(text);
       }
 
-      setExtractedText(text);
       setProgress(30);
       setProgressLabel("Analyzing content with AI...");
+
+      // Build knowledge context from internal subject database
+      const knowledgeCtx = buildKnowledgeContext(subjectHint || result?.detectedSubject || "");
+
+      // Collect ALL previously used questions across all shuffles
+      const allPreviousQuestions = shuffleHistory.flat();
 
       // Step 2: Call AI edge function
       const { data, error } = await supabase.functions.invoke("generate-from-notes", {
@@ -222,6 +248,8 @@ export default function GenerateFromNotes() {
           difficulty,
           strictMode,
           subjectHint: subjectHint || undefined,
+          knowledgeContext: knowledgeCtx || undefined,
+          previousQuestions: allPreviousQuestions.length > 0 ? allPreviousQuestions : undefined,
         },
       });
 
@@ -239,6 +267,13 @@ export default function GenerateFromNotes() {
       const aiResult = data as AIResult;
       setResult(aiResult);
       setEditQuestions(aiResult.questions);
+
+      // Track shuffle history
+      const questionTexts = aiResult.questions.map(q => q.text);
+      const orTexts = aiResult.questions.filter(q => q.orAlternativeText).map(q => q.orAlternativeText!);
+      setShuffleHistory(prev => [...prev, [...questionTexts, ...orTexts]]);
+      setCurrentShuffleIndex(prev => prev + (isShuffle ? 1 : 0));
+
       setProgress(100);
       setProgressLabel("Complete!");
 
@@ -284,7 +319,7 @@ export default function GenerateFromNotes() {
     } finally {
       setProcessing(false);
     }
-  }, [file, sections, difficulty, strictMode, subjectHint, toast, collegeName, examType, duration, answeredMarks]);
+  }, [file, sections, difficulty, strictMode, subjectHint, toast, collegeName, examType, duration, answeredMarks, extractedText, shuffleHistory, result]);
 
   const saveEdits = useCallback(() => {
     if (!result) return;
@@ -536,7 +571,7 @@ export default function GenerateFromNotes() {
           {/* Generate Button */}
           <Button
             className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-medium h-12 text-base"
-            onClick={generateFromNotes}
+            onClick={() => generateFromNotes()}
             disabled={!file || processing}
           >
             {processing ? (
@@ -639,8 +674,18 @@ export default function GenerateFromNotes() {
 
                 {/* Export Bar */}
                 <div className="flex items-center justify-end gap-2 p-3 border-b border-border flex-wrap">
-                  <Button variant="outline" size="sm" onClick={() => generateFromNotes()} disabled={processing}>
+                  <Button variant="outline" size="sm" onClick={() => generateFromNotes(false)} disabled={processing}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => generateFromNotes(true)} 
+                    disabled={processing || shuffleHistory.length >= MAX_SHUFFLES}
+                    title={shuffleHistory.length >= MAX_SHUFFLES ? "Maximum shuffles reached" : `Shuffle ${shuffleHistory.length + 1}/${MAX_SHUFFLES}`}
+                  >
+                    <Shuffle className="w-3.5 h-3.5 mr-1" /> 
+                    Shuffle {shuffleHistory.length > 0 ? `(${shuffleHistory.length}/${MAX_SHUFFLES})` : ""}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => exportAsPdf(buildExportQuestions(), buildExportMeta())}>
                     <Download className="w-3.5 h-3.5 mr-1" /> PDF
