@@ -1353,6 +1353,11 @@ export default function GeneratePaper() {
                     {isDraft && (
                       <Badge variant="secondary" className="text-[10px] mt-2">📝 DRAFT</Badge>
                     )}
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <Badge className="bg-success/10 text-success border-success/20 text-[10px]">
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> AI Validated Paper
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Action Bar */}
