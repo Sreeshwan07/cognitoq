@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import {
   Upload, FileText, X, CheckCircle2, AlertCircle, Edit3, Save, Trash2,
-  Eye, Brain, Sparkles, BookOpen, Download, RefreshCw, Settings2, ShieldCheck
+  Eye, Brain, Sparkles, BookOpen, Download, RefreshCw, Settings2, ShieldCheck, Shuffle
 } from "lucide-react";
+import { buildKnowledgeContext } from "@/data/subjectKnowledge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
