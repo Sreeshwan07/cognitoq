@@ -319,7 +319,7 @@ export default function GenerateFromNotes() {
     } finally {
       setProcessing(false);
     }
-  }, [file, sections, difficulty, strictMode, subjectHint, toast, collegeName, examType, duration, answeredMarks]);
+  }, [file, sections, difficulty, strictMode, subjectHint, toast, collegeName, examType, duration, answeredMarks, extractedText, shuffleHistory, result]);
 
   const saveEdits = useCallback(() => {
     if (!result) return;
