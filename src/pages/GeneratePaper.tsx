@@ -1590,6 +1590,19 @@ export default function GeneratePaper() {
   );
 }
 
+const numberWords: Record<number, string> = {
+  1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE",
+  6: "SIX", 7: "SEVEN", 8: "EIGHT", 9: "NINE", 10: "TEN",
+  11: "ELEVEN", 12: "TWELVE", 13: "THIRTEEN", 14: "FOURTEEN", 15: "FIFTEEN",
+};
+
+function formatSectionInstruction(questionsToAnswer: number, totalQuestions: number, marks: number): string {
+  if (questionsToAnswer >= totalQuestions) return "Answer ALL questions";
+  const word = numberWords[questionsToAnswer] || String(questionsToAnswer);
+  const totalMarksVal = questionsToAnswer * marks;
+  return `Answer ANY ${word} out of ${totalQuestions} questions (${questionsToAnswer} × ${marks} = ${totalMarksVal} Marks)`;
+}
+
 function SectionBlock({ title, markLabel, instruction, questions, startNum, totalMarks, theme, showOr }: {
   title: string;
   markLabel: string;
@@ -1612,7 +1625,7 @@ function SectionBlock({ title, markLabel, instruction, questions, startNum, tota
           <Badge variant="secondary" className="text-[10px]">{markLabel}</Badge>
           <span className="text-xs text-muted-foreground ml-auto">{totalMarks} marks</span>
         </div>
-        <p className="text-xs text-muted-foreground italic">{instruction}</p>
+        <p className="text-xs text-muted-foreground italic font-medium">{instruction}</p>
       </div>
       {questions.map((q, i) => (
         <QuestionRow key={`${title}-${i}`} q={q} num={startNum + i} showOr={showOr} />
