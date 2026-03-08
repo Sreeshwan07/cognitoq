@@ -3,7 +3,6 @@ import {
   Database,
   FileText,
   Zap,
-  Upload,
   BookOpen,
   TrendingUp,
   Clock,
