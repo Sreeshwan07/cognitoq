@@ -674,8 +674,18 @@ export default function GenerateFromNotes() {
 
                 {/* Export Bar */}
                 <div className="flex items-center justify-end gap-2 p-3 border-b border-border flex-wrap">
-                  <Button variant="outline" size="sm" onClick={() => generateFromNotes()} disabled={processing}>
+                  <Button variant="outline" size="sm" onClick={() => generateFromNotes(false)} disabled={processing}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => generateFromNotes(true)} 
+                    disabled={processing || shuffleHistory.length >= MAX_SHUFFLES}
+                    title={shuffleHistory.length >= MAX_SHUFFLES ? "Maximum shuffles reached" : `Shuffle ${shuffleHistory.length + 1}/${MAX_SHUFFLES}`}
+                  >
+                    <Shuffle className="w-3.5 h-3.5 mr-1" /> 
+                    Shuffle {shuffleHistory.length > 0 ? `(${shuffleHistory.length}/${MAX_SHUFFLES})` : ""}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => exportAsPdf(buildExportQuestions(), buildExportMeta())}>
                     <Download className="w-3.5 h-3.5 mr-1" /> PDF
