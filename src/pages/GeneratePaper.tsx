@@ -130,6 +130,7 @@ export default function GeneratePaper() {
   const [isDraft, setIsDraft] = useState(false);
   const [qualityScore, setQualityScore] = useState<QualityScoreResult | null>(null);
   const [isImproving, setIsImproving] = useState(false);
+  const [excludedTexts, setExcludedTexts] = useState<Set<string>>(new Set());
 
   // Track previously used question IDs for smart shuffle
   const usedQuestionSets = useRef<Set<string>[]>([]);
@@ -358,7 +359,7 @@ export default function GeneratePaper() {
       const unitPools: Record<string, Question[]> = {};
       units.forEach(unitName => {
         unitPools[unitName] = [...(subjectBank[unitName] || [])].filter(
-          q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim()) && !newUsedKeys.has(q.text.toLowerCase().trim())
+          q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim()) && !newUsedKeys.has(q.text.toLowerCase().trim()) && !excludedTexts.has(q.text.toLowerCase().trim())
         ).sort(() => Math.random() - 0.5);
       });
 
@@ -465,10 +466,10 @@ export default function GeneratePaper() {
     }
 
     return { questions: result, usedKeys: newUsedKeys };
-  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject, useSectionConfig, sections]);
+  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject, useSectionConfig, sections, excludedTexts]);
 
   // Multi-variant generation
-  const generateQuestions = useCallback(() => {
+  const generateQuestions = useCallback(async () => {
     if (!isValid) {
       toast({ title: "Validation Error", description: validationErrors[0], variant: "destructive" });
       return;
@@ -483,6 +484,16 @@ export default function GeneratePaper() {
         variant: "destructive",
       });
     }
+
+    // Fetch excluded questions from DB
+    const { data: excludedData } = await supabase
+      .from("questions")
+      .select("text")
+      .eq("exclude_from_paper", true);
+    const newExcluded = new Set<string>(
+      (excludedData || []).map(q => q.text.toLowerCase().trim())
+    );
+    setExcludedTexts(newExcluded);
 
     const genStartTime = Date.now();
     setIsGenerating(true);

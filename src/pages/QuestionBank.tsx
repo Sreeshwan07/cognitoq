@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Upload, Search, Plus, Trash2, Tag, BookOpen, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, Search, Plus, Trash2, Tag, BookOpen, Loader2, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ interface DBQuestion {
   bloom: string | null;
   source: string;
   created_at: string;
+  exclude_from_paper: boolean;
 }
 
 export default function QuestionBank() {
@@ -260,7 +261,12 @@ export default function QuestionBank() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 space-y-2">
-                          <p className="text-sm font-medium text-foreground">{q.text}</p>
+                          <div className="flex items-start gap-2">
+                            <p className="text-sm font-medium text-foreground">{q.text}</p>
+                            {q.exclude_from_paper && (
+                              <Badge variant="destructive" className="text-[10px] shrink-0">🚫 Excluded</Badge>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {q.subject_code && <Badge variant="secondary" className="text-xs">{q.subject_code}</Badge>}
                             <Badge variant="secondary" className="text-xs">{q.unit}</Badge>
@@ -272,7 +278,27 @@ export default function QuestionBank() {
                           </div>
                         </div>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><Tag className="w-3.5 h-3.5" /></Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8", q.exclude_from_paper ? "text-destructive" : "text-muted-foreground")}
+                            title={q.exclude_from_paper ? "Include in papers" : "Exclude from papers"}
+                            onClick={async () => {
+                              const newVal = !q.exclude_from_paper;
+                              const { error } = await supabase
+                                .from("questions")
+                                .update({ exclude_from_paper: newVal })
+                                .eq("id", q.id);
+                              if (error) {
+                                toast.error("Failed to update");
+                              } else {
+                                setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, exclude_from_paper: newVal } : x));
+                                toast.success(newVal ? "Excluded from papers" : "Included in papers");
+                              }
+                            }}
+                          >
+                            {q.exclude_from_paper ? <Check className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
                       </div>

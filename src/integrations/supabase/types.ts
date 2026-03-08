@@ -144,6 +144,7 @@ export type Database = {
           bloom: string | null
           created_at: string
           difficulty: string
+          exclude_from_paper: boolean
           id: string
           marks: number
           source: string
@@ -159,6 +160,7 @@ export type Database = {
           bloom?: string | null
           created_at?: string
           difficulty?: string
+          exclude_from_paper?: boolean
           id?: string
           marks?: number
           source?: string
@@ -174,6 +176,7 @@ export type Database = {
           bloom?: string | null
           created_at?: string
           difficulty?: string
+          exclude_from_paper?: boolean
           id?: string
           marks?: number
           source?: string
