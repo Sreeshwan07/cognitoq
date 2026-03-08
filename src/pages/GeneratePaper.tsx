@@ -466,7 +466,7 @@ export default function GeneratePaper() {
     }
 
     return { questions: result, usedKeys: newUsedKeys };
-  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject, useSectionConfig, sections]);
+  }, [selectedSubject, q2Count, q5Count, q10Count, difficulty, bloomsEnabled, bloomsLevel, useUnitDistribution, unitDistributions, currentSubject, useSectionConfig, sections, excludedTexts]);
 
   // Multi-variant generation
   const generateQuestions = useCallback(async () => {
