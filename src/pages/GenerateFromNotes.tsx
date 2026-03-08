@@ -571,7 +571,7 @@ export default function GenerateFromNotes() {
           {/* Generate Button */}
           <Button
             className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-medium h-12 text-base"
-            onClick={generateFromNotes}
+            onClick={() => generateFromNotes()}
             disabled={!file || processing}
           >
             {processing ? (
