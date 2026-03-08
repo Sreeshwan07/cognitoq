@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { exportAsPdf, exportAsDocx, exportAsTxt, exportAsZip } from "@/lib/exportUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateQualityScore, type QualityScoreResult } from "@/lib/qualityScore";
+import { saveQuestionsToBank } from "@/lib/saveQuestions";
 import PaperQualityScore from "@/components/PaperQualityScore";
 
 const examTypes = ["Mid Semester", "End Semester", "Internal Assessment", "Supplementary"];
