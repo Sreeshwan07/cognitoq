@@ -83,6 +83,8 @@ export default function GeneratePaper() {
   const [yearFilter, setYearFilter] = useState("");
   const [semesterFilter, setSemesterFilter] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get("subject") || "");
+  const [autoFilled, setAutoFilled] = useState(false);
+  const [fieldsLocked, setFieldsLocked] = useState(false);
 
   // Unit distribution
   const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>([]);
