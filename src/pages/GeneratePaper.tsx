@@ -205,10 +205,19 @@ export default function GeneratePaper() {
     usedQuestionSets.current = [];
     const sub = getSubjectById(subjectId);
     if (sub) {
+      // Auto-fill department, year, semester from subject mapping
+      setDepartment(sub.branch);
+      setYearFilter(String(sub.year));
+      setSemesterFilter(String(sub.semester));
+      setAutoFilled(true);
+      setFieldsLocked(true);
+
       setUnitDistributions(
         sub.units.map(u => ({ unitName: u, selected: true, q2: 0, q5: 0, q10: 0 }))
       );
     } else {
+      setAutoFilled(false);
+      setFieldsLocked(false);
       setUnitDistributions([]);
     }
   }, []);
