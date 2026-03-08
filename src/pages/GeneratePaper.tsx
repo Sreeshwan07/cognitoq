@@ -226,7 +226,55 @@ export default function GeneratePaper() {
     }
   }, []);
 
-  // Update section config
+  // Load "Generate Similar" config from sessionStorage
+  useEffect(() => {
+    if (searchParams.get("similar") !== "true") return;
+    const raw = sessionStorage.getItem("cognitoq_similar_config");
+    if (!raw) return;
+    sessionStorage.removeItem("cognitoq_similar_config");
+
+    try {
+      const config = JSON.parse(raw);
+      const paperData = config.paperData || {};
+
+      // Find subject ID by name match
+      const subjectMatch = subjects.find(
+        s => s.name === config.subject || s.code === config.subject || s.id === config.subject
+      );
+      if (subjectMatch) {
+        handleSubjectChange(subjectMatch.id);
+      }
+
+      // Restore header
+      if (paperData.collegeName) setCollegeName(paperData.collegeName);
+      if (paperData.examType) setExamType(paperData.examType);
+      if (paperData.duration) setDuration(paperData.duration);
+      if (paperData.theme) setSelectedTheme(paperData.theme);
+
+      // Restore sections
+      if (paperData.sections && paperData.sections.length > 0) {
+        setUseSectionConfig(true);
+        setSections(paperData.sections);
+      }
+
+      // Pre-load excluded texts from previous paper
+      if (config.excludedTexts && config.excludedTexts.length > 0) {
+        setExcludedTexts(new Set(config.excludedTexts));
+      }
+
+      setSimilarMode(true);
+      similarAutoGenRef.current = true;
+
+      toast({
+        title: "📋 Similar Paper Config Loaded",
+        description: "Same structure loaded. Click Generate to create with new questions.",
+      });
+    } catch (e) {
+      console.error("Failed to parse similar config", e);
+    }
+  }, []);
+
+
   const updateSection = (index: number, field: keyof SectionConfig, value: number | boolean | string) => {
     setSections(prev => {
       const next = [...prev];
