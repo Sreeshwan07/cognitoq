@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import ActiveUsersMonitor from "@/components/ActiveUsersMonitor";
 import {
   Select,
   SelectContent,
