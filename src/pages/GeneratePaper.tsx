@@ -107,7 +107,13 @@ export default function GeneratePaper() {
   const [fieldsLocked, setFieldsLocked] = useState(!!initialSubject);
 
   // Unit distribution
-  const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>([]);
+  const [unitDistributions, setUnitDistributions] = useState<UnitDistribution[]>(() => {
+    if (initialSubject) {
+      const sub = getSubjectById(initialSubject);
+      if (sub) return sub.units.map(u => ({ unitName: u, selected: true, q2: 0, q5: 0, q10: 0 }));
+    }
+    return [];
+  });
   const [useUnitDistribution, setUseUnitDistribution] = useState(false);
 
   // Section-based config
