@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  FileText, Download, Copy, Trash2, Calendar, Search, Filter, FolderOpen
+  FileText, Download, Copy, Trash2, Calendar, Search, Filter, FolderOpen, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { exportAsTxt, exportAsPdf } from "@/lib/exportUtils";
 
@@ -29,6 +30,7 @@ interface SavedPaper {
 
 export default function SavedPapers() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [papers, setPapers] = useState<SavedPaper[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -85,6 +87,23 @@ export default function SavedPapers() {
       loadPapers();
       toast({ title: "Paper Duplicated" });
     }
+  };
+
+  const generateSimilar = (paper: SavedPaper) => {
+    // Store the paper config + excluded question texts in sessionStorage
+    const excludedTexts = Array.isArray(paper.questions)
+      ? paper.questions.map((q: any) => q.text?.toLowerCase?.().trim()).filter(Boolean)
+      : [];
+    const similarConfig = {
+      paperData: paper.paper_data,
+      subject: paper.subject,
+      department: paper.department,
+      excludedTexts,
+    };
+    sessionStorage.setItem("cognitoq_similar_config", JSON.stringify(similarConfig));
+    // Navigate to generate page with similar flag
+    navigate("/generate?similar=true");
+    toast({ title: "🔄 Loading similar paper config...", description: "Same structure, different questions." });
   };
 
   const downloadPaper = (paper: SavedPaper, format: "pdf" | "txt") => {
@@ -213,6 +232,9 @@ export default function SavedPapers() {
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => downloadPaper(paper, "pdf")} title="Download PDF">
                       <Download className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={() => generateSimilar(paper)} title="Generate Similar Paper">
+                      <RefreshCw className="w-3.5 h-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => duplicatePaper(paper)} title="Duplicate">
                       <Copy className="w-3.5 h-3.5" />
