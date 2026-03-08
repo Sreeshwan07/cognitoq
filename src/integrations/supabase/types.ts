@@ -139,54 +139,6 @@ export type Database = {
         }
         Relationships: []
       }
-      questions: {
-        Row: {
-          bloom: string | null
-          created_at: string
-          difficulty: string
-          id: string
-          marks: number
-          source: string
-          subject: string
-          subject_code: string | null
-          text: string
-          type: string
-          unit: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          bloom?: string | null
-          created_at?: string
-          difficulty?: string
-          id?: string
-          marks?: number
-          source?: string
-          subject: string
-          subject_code?: string | null
-          text: string
-          type?: string
-          unit: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          bloom?: string | null
-          created_at?: string
-          difficulty?: string
-          id?: string
-          marks?: number
-          source?: string
-          subject?: string
-          subject_code?: string | null
-          text?: string
-          type?: string
-          unit?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       uploaded_papers: {
         Row: {
           analysis: Json | null
