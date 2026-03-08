@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  FileText, Download, Copy, Trash2, Calendar, Search, Filter, FolderOpen
+  FileText, Download, Copy, Trash2, Calendar, Search, Filter, FolderOpen, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { exportAsTxt, exportAsPdf } from "@/lib/exportUtils";
 
