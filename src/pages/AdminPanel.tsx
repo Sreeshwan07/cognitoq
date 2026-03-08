@@ -263,28 +263,6 @@ export default function AdminPanel() {
                                 </Button>
                               </>
                             )}
-                            {u.status === "approved" && u.role === "faculty" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                disabled={isLoading}
-                                onClick={() => promoteToAdmin(u.id)}
-                              >
-                                Promote
-                              </Button>
-                            )}
-                            {u.status === "approved" && u.role === "admin" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                disabled={isLoading}
-                                onClick={() => demoteToFaculty(u.id)}
-                              >
-                                Demote
-                              </Button>
-                            )}
                             {u.status === "rejected" && (
                               <Button
                                 size="sm"
