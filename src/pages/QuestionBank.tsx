@@ -32,6 +32,7 @@ interface DBQuestion {
   bloom: string | null;
   source: string;
   created_at: string;
+  exclude_from_paper: boolean;
 }
 
 export default function QuestionBank() {
