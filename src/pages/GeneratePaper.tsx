@@ -359,7 +359,7 @@ export default function GeneratePaper() {
       const unitPools: Record<string, Question[]> = {};
       units.forEach(unitName => {
         unitPools[unitName] = [...(subjectBank[unitName] || [])].filter(
-          q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim()) && !newUsedKeys.has(q.text.toLowerCase().trim())
+          q => q.marks === marks && diffFilter(q) && bloomFilter(q) && !excludeKeys.has(q.text.toLowerCase().trim()) && !newUsedKeys.has(q.text.toLowerCase().trim()) && !excludedTexts.has(q.text.toLowerCase().trim())
         ).sort(() => Math.random() - 0.5);
       });
 
