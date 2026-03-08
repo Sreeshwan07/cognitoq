@@ -100,21 +100,6 @@ export default function AdminPanel() {
     toast({ title: `User ${status === "approved" ? "Approved" : "Rejected"}` });
   };
 
-  const promoteToAdmin = async (userId: string) => {
-    setActionLoading(userId);
-    await supabase.from("user_roles").update({ role: "admin" }).eq("user_id", userId);
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: "admin" } : u)));
-    setActionLoading(null);
-    toast({ title: "User promoted to Admin" });
-  };
-
-  const demoteToFaculty = async (userId: string) => {
-    setActionLoading(userId);
-    await supabase.from("user_roles").update({ role: "faculty" }).eq("user_id", userId);
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: "faculty" } : u)));
-    setActionLoading(null);
-    toast({ title: "User demoted to Faculty" });
-  };
 
   const filtered = users.filter((u) => {
     const matchesSearch =
@@ -277,28 +262,6 @@ export default function AdminPanel() {
                                   <XCircle className="w-3 h-3 mr-1" /> Reject
                                 </Button>
                               </>
-                            )}
-                            {u.status === "approved" && u.role === "faculty" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                disabled={isLoading}
-                                onClick={() => promoteToAdmin(u.id)}
-                              >
-                                Promote
-                              </Button>
-                            )}
-                            {u.status === "approved" && u.role === "admin" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                disabled={isLoading}
-                                onClick={() => demoteToFaculty(u.id)}
-                              >
-                                Demote
-                              </Button>
                             )}
                             {u.status === "rejected" && (
                               <Button
