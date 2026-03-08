@@ -267,6 +267,13 @@ export default function GenerateFromNotes() {
       const aiResult = data as AIResult;
       setResult(aiResult);
       setEditQuestions(aiResult.questions);
+
+      // Track shuffle history
+      const questionTexts = aiResult.questions.map(q => q.text);
+      const orTexts = aiResult.questions.filter(q => q.orAlternativeText).map(q => q.orAlternativeText!);
+      setShuffleHistory(prev => [...prev, [...questionTexts, ...orTexts]]);
+      setCurrentShuffleIndex(prev => prev + (isShuffle ? 1 : 0));
+
       setProgress(100);
       setProgressLabel("Complete!");
 
