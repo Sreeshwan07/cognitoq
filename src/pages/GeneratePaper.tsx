@@ -928,22 +928,7 @@ export default function GeneratePaper() {
               )}
             </div>
 
-            {/* Subject FIRST */}
-            <div className="space-y-2">
-              <Label>Subject <span className="text-destructive">*</span></Label>
-              <Select value={selectedSubject} onValueChange={handleSubjectChange}>
-                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                <SelectContent>
-                  {filteredSubjects.filter(s => s.branch !== "core").map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.code} — {s.name}
-                      {s.category === "open_elective" ? " (OE)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+            {/* Department FIRST */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Department <span className="text-destructive">*</span></Label>
@@ -965,6 +950,22 @@ export default function GeneratePaper() {
                 <SelectContent>
                   {branches.filter(b => b.id !== "core").map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.shortName} — {b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Subject (filtered by department) */}
+            <div className="space-y-2">
+              <Label>Subject <span className="text-destructive">*</span></Label>
+              <Select value={selectedSubject} onValueChange={handleSubjectChange} disabled={!department}>
+                <SelectTrigger><SelectValue placeholder={department ? "Select subject" : "Select department first"} /></SelectTrigger>
+                <SelectContent>
+                  {filteredSubjects.filter(s => s.branch !== "core").map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.code} — {s.name}
+                      {s.category === "open_elective" ? " (OE)" : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
