@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
+📘 CognitoQ – Smart Question Paper Generator
 
-## Project info
+CognitoQ is an intelligent web application designed to generate university-style question papers, manage question banks, and automate exam preparation using AI-powered features.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+🚀 Features
+📚 Question Bank Management
+Add, edit, and organize questions
+Auto-filter by subject, unit, difficulty
+Dynamic question retrieval from database
+📝 Question Paper Generator
+Generate papers based on pattern (marks, sections, etc.)
+Supports Answer Any / OR options
+Ensures proper distribution across units
+🔄 Generate Similar Paper
+Creates a new paper with same structure
+Uses different questions automatically
+📂 Generate from Notes
+Upload notes and auto-generate questions
+👥 Multi-User Access
+Multiple users can use the app simultaneously
+Real-time usage support
+🔐 Admin Approval System
+Users request access
+Admin approves via email (super admin control)
+📊 Paper Quality Score
+Ensures balanced and accurate question distribution
+📱 Responsive UI
+Clean and easy-to-use interface
+🏗️ Tech Stack
+Frontend
+React.js
+Tailwind CSS
+ShadCN UI
+Backend
+Node.js
+Express.js
+Database
+MongoDB (or Firebase / Supabase)
+Authentication
+Google OAuth
+Admin approval system
+⚙️ Installation & Setup
+1️⃣ Clone the repository
+git clone https://github.com/your-username/cognitoq.git
+cd cognitoq
+2️⃣ Install dependencies
+npm install
+3️⃣ Setup environment variables
 
-## How can I edit this code?
+Create a .env file:
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+PORT=5000
+MONGO_URI=your_database_url
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_secret
+ADMIN_EMAIL=your_email
+4️⃣ Run the project
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+👉 Open in browser:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+http://localhost:3000
+📁 Project Structure
+cognitoq/
+│── frontend/        # React UI
+│── backend/         # APIs & auth
+│── database/        # DB models
+│── components/      # UI components
+│── utils/           # Helper functions
+🧠 Key Functionalities
+Auto-fill Department, Year, Semester from subject
+Question bank linked dynamically to subjects
+Remove unwanted topics from paper generation
+Accurate paper scoring system
+Supports multiple devices and users
+🔧 Improvements Implemented
+Removed unnecessary UI elements (Lovable branding, upload drag)
+Fixed Google login issues
+Added multi-user support
+Improved settings and admin control
+Optimized performance and error handling
+📌 Future Enhancements
+📷 Question scanner (image to text)
+🤖 AI-based question difficulty detection
+📊 Advanced analytics dashboard
+📄 Export to PDF (university format)
+👤 Author
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Marri Sreeshwan Reddy
