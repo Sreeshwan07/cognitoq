@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, Mail, Lock, User } from "lucide-react";
+import ForgotPasswordDialog from "@/components/ForgotPasswordDialog";
 import { motion } from "framer-motion";
 import cognitoQLogo from "@/assets/cognitoq-logo.png";
 
