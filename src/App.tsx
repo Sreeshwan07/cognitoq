@@ -17,6 +17,7 @@ import SettingsPage from "./pages/Settings";
 import Login from "./pages/Login";
 import AdminPanel from "./pages/AdminPanel";
 import GenerateFromNotes from "./pages/GenerateFromNotes";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
