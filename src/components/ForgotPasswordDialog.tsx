@@ -51,7 +51,7 @@ export default function ForgotPasswordDialog() {
 
         {sent ? (
           <div className="text-center space-y-4 py-4">
-            <CheckCircle className="w-12 h-12 mx-auto text-green-500" />
+            <CheckCircle className="w-12 h-12 mx-auto text-primary" />
             <p className="text-muted-foreground">
               We've sent a password reset link to <strong>{email}</strong>. Please check your inbox.
             </p>

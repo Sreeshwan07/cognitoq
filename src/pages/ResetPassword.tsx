@@ -88,7 +88,7 @@ export default function ResetPassword() {
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-md text-center space-y-6"
         >
-          <CheckCircle className="w-16 h-16 mx-auto text-green-500" />
+          <CheckCircle className="w-16 h-16 mx-auto text-primary" />
           <h2 className="text-2xl font-display text-foreground">Password Reset!</h2>
           <p className="text-muted-foreground">Redirecting you to login...</p>
         </motion.div>
